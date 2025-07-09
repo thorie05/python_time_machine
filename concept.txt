@@ -1,0 +1,29 @@
+Fitting function:
+   Does the numerical fitting work
+
+   Parameters: data, knowns, targets
+   Returns: fitted parameter values
+
+Calibrator Class:
+   Attributes:
+       - model_order, D*/D0 (known inputs)
+       - calibration_data (list of datapoints)
+       - sigma_phi, mu (derived from fitting)
+       - diry_flag (True/False) (toggled by add_data, remove_data or
+            @property changes of the known inputs)
+   Methods:
+       - add_data(data)
+       - remove_data(index)
+       - get_params() -> runs recalibration only if dirty
+       - calibrate() -> calls fitting function
+
+Model Class:
+    Attributes:
+       - calibrator (reference, on which get_params can be called)
+       - params
+       either calibrator or params can be passed on creation -> optional design
+    Methods:
+       - get_params -> returns either self.params or calibrator.get_params,
+            depending on which is passed upon creation
+       - calculateAges(data) -> gets params through self.get_params
+       - calculateErrors(data) -> bootstrap method, time consuming
