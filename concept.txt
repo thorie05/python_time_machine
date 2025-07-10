@@ -9,7 +9,7 @@ Calibrator Class:
        - model_order, D*/D0 (known inputs)
        - calibration_data (list of datapoints)
        - sigma_phi, mu (derived from fitting)
-       - diry_flag (True/False) (toggled by add_data, remove_data or
+       - dirty_flag (True/False) (toggled by add_data, remove_data or
             @property changes of the known inputs)
    Methods:
        - add_data(data)

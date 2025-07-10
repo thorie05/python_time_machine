@@ -2,7 +2,8 @@ import numpy as np
 from scipy.optimize import curve_fit
 from inspect import signature
 
-def fit(x_data, y_data, model_function, known_params, initial_guess,
+
+def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     y_err_sigma=None):
     """A function that calculates the best fit for the given parameters. 
 
@@ -11,7 +12,10 @@ def fit(x_data, y_data, model_function, known_params, initial_guess,
     initial guess dict containing the unknown parameters with their respective
     initial guesses. It returns a dict with the best numerical values for the
     unknown parameters that minimize the squared error of the given model
-    function fitted through the datapoints.
+    function fitted through the datapoints. The function is called easy fit,
+    because it doesn't return any errors, which are calculated in the much more
+    time-consuming function bootstrap fit, which also provides slightly more
+    accurate fit parameters additionally to the errors.
 
     Args:
         x_data (list or numpy.ndarray): The x-values of the datapoints.
@@ -62,7 +66,9 @@ def fit(x_data, y_data, model_function, known_params, initial_guess,
 
     # best curve fit
     popt, _ = curve_fit(model_wrapper, x_data, y_data, p0=initial_guess_array,
-        sigma=y_err_sigma, absolute_sigma=(y_err_sigma is not None))
+        sigma=y_err_sigma, absolute_sigma=(y_err_sigma is not None),
+        bounds=([0] * len(unknown_param_names),
+        [np.inf] * len(unknown_param_names)), maxfev=10_000)
 
     fitted_params = dict(zip(unknown_param_names, popt))
 
