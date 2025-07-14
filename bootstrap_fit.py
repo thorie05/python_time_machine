@@ -5,7 +5,7 @@ from fit_result_dataclass import FitResult
 
 
 def bootstrap_fit(n, x_data, y_data, model_function, known_params,
-    initial_guess, y_err_sigma=None, known_params_err_sigma=None,
+    initial_guess, y_err_std=None, known_params_err_sigma=None,
     only_positive=True, return_samples=False, seed=None):
     """A function that calculates the best fit and standard deviations for the
     given parameters. 
@@ -27,8 +27,8 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     results obtained by only using the easy fit function, but only if n is
     sufficiently large enough. n is recommended to be at least 1000, 10000 or
     even more would be best. The result for each parameter is obtained by taking
-    the median of the histogram of the results of all bootstrap iterations, the
-    principle applies to the confidence intervals.
+    the median of the histogram of the results of all bootstrap iterations, same
+    as the confidence intervals.
 
     Args:
         n (int): Number of times the data gets resampled and perturbed.
@@ -39,7 +39,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             and their values.
         initial_guess (dict(str: float)): Dict containing the unknown parameters
             and the initial guess for each.
-        y_err_sigma (list or numpy.ndarray, optional): The standard deviation
+        y_err_std (list or numpy.ndarray, optional): The standard deviation
             of the y-values.
         known_params_err_sigma (dict(str: float), optional): The standard
             deviation of each known parameter.
@@ -57,17 +57,35 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     # convert input data to np arrays if given as lists
     x_data = np.array(x_data)
     y_data = np.array(y_data)
-    if y_err_sigma is not None:
-        y_err_sigma = np.array(y_err_sigma)
+    if y_err_std is not None:
+        y_err_std = np.array(y_err_std)
+
+    # check if provided standard deviations for known parameters match the
+    # known parameters dict
+    if known_params_err_sigma is not None:
+        set_known_params_err_sigma = set(known_params_err_sigma)
+        set_known_params = set(known_params)
+        # if the names don't match throw an exception
+        if set_known_params != set_known_params_err_sigma:
+            missing = set_known_params - set_known_params_err_sigma
+            extra = set_known_params_err_sigma - set_known_params
+            msg = []
+            if missing:
+                msg.append(f"Missing parameters: {sorted(missing)}")
+            if extra:
+                msg.append(f"Unexpected parameters: {sorted(extra)}")
+            raise ValueError("Mismatch between known parameters and " \
+                + "known parameters error dict.\n" + "\n".join(msg))
 
     rng = np.random.default_rng(seed)
+
     # make unique seeds of size n for each worker
     seeds = rng.integers(low=0, high=np.iinfo(np.uint64).max, size=n,
         dtype=np.uint64)
 
     parallel_results = Parallel(n_jobs=-1, batch_size="auto") (
         delayed(single_bootstrap_iteration)(seed_i, x_data, y_data,
-        model_function, known_params, initial_guess, y_err_sigma,
+        model_function, known_params, initial_guess, y_err_std,
         known_params_err_sigma, only_positive=only_positive) \
         for seed_i in seeds)
 
@@ -129,7 +147,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
 
 
 def single_bootstrap_iteration(seed, x_data, y_data, model_function,
-    known_params, initial_guess, y_err_sigma=None, known_params_err_sigma=None,
+    known_params, initial_guess, y_err_std=None, known_params_err_sigma=None,
     only_positive=True):
     """
     A function executing an iteration of the bootstrap method.
@@ -143,7 +161,7 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
             values.
         initial_guess (dict): Dict containing the unknown parameters and the
             initial guess for each.
-        y_err_sigma (list or numpy.ndarray, optional): The standard deviation
+        y_err_std (list or numpy.ndarray, optional): The standard deviation
             of the y-values.
         known_params_err_sigma (dict, optional): The standard deviation of
             each known parameter.
@@ -164,8 +182,8 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
 
     x_data_resampled = x_data[random_indices]
     y_data_resampled = y_data[random_indices]
-    y_err_sigma_resampled = None if y_err_sigma is None \
-        else y_err_sigma[random_indices]
+    y_err_std_resampled = None if y_err_std is None \
+        else y_err_std[random_indices]
 
     # if standard deviations for the known parameters are provided perturb
     # each accordingly using the normal distribuation
@@ -184,7 +202,7 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
     try:
         fitting_results = easy_fit(x_data_resampled, y_data_resampled,
             model_function, known_params_perturbed, initial_guess,
-            y_err_sigma=y_err_sigma_resampled, only_positive=only_positive)
+            y_err_std=y_err_std_resampled, only_positive=only_positive)
         return fitting_results
     # occasionally the scipy curve fit could fail if it doesn't find the
     # best fit in the required number of steps -> skip such cases

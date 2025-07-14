@@ -1,6 +1,5 @@
 import numpy as np
 
-
 # All time variables are interpreted as consecutive timespans, not timestamps.
 # For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_1 = 10 means:
 # Starting from full saturation, followed by 1000 time units of exposure,
@@ -36,7 +35,7 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1):
     Args:
         x (float or numpy.ndarray): The depth(s) in the rock.
         order (float): Order of the mathematical model used.
-        sigma_phi (float): Sigma-Phi value, detrapping rate at the surface.
+        sigma_phi (float): Sigma-phi value, detrapping rate at the surface.
         mu (float): Mu value, light attenuation coefficient in the rock.
         f (float): f = D*(x) / D_0, charge filling rate in the rock, here
             assumend as a constant.
