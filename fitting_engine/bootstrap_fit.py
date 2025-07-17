@@ -1,7 +1,7 @@
-from joblib import Parallel, delayed
-from easy_fit import easy_fit
 import numpy as np
-from fit_result_dataclass import FitResult
+from joblib import Parallel, delayed
+from .easy_fit import easy_fit
+from .fit_result_dataclass import FitResult
 
 
 def bootstrap_fit(n, x_data, y_data, model_function, known_params,
@@ -11,24 +11,24 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     given parameters. 
 
     Takes in an integer n, an array of x- and y-values, the model function
-    to use, a dict of known parameters with their respective values, an
-    initial guess dict containing the unknown parameters with their respective
-    initial guesses and finally an optional array containing the y-errors and
-    an optional dict with the errors of the known parameters and an optional
-    flag that ensures all parameters are positive, an optional indicating
-    whether the full bootstrap lists should be returned and an optional seed
-    for the random number generator. It returns a dict containing tuples of the
-    best numerical values and the 95% confidence intervals for the unknown
-    parameters that minimize the squared error of the given model function
-    fitted through the data points. The function makes use of the bootstrap
-    method, so it internally calls the easy fit function n times, making it
-    quite time-consuming, even though it works on all cores in parallel. The
-    results for the fitted parameters are slightly more accurate than the
-    results obtained by only using the easy fit function, but only if n is
-    sufficiently large enough. n is recommended to be at least 1000, 10000 or
-    even more would be best. The result for each parameter is obtained by taking
-    the median of the histogram of the results of all bootstrap iterations, same
-    as the confidence intervals.
+    to use, a dict of known parameters with their respective values (values can
+    be scalars or point-dependent arrays), an initial guess dict containing the
+    free parameters with their respective initial guesses and finally an
+    optional array containing the y-errors and an optional dict with the errors
+    of the known parameters and an optional flag that ensures all parameters are
+    positive, an optional flag indicating whether the full bootstrap lists
+    should be returned and an optional seed for the random number generator. It
+    returns a dict containing tuples of the best numerical values and the 95% confidence
+    intervals for the free parameters that minimize the squared error of the
+    given model function fitted through the data points. The function makes use
+    of the bootstrap method, so it internally calls the easy fit function n
+    times, making it quite time-consuming, even though it works on all cores in
+    parallel. The results for the fitted parameters are slightly more accurate
+    than the results obtained by only using the easy fit function, but only if
+    n is sufficiently large enough. n is recommended to be at least 1000, 10000
+    or even more would be best. The result for each parameter is obtained by
+    taking the median of the histogram of the results of all bootstrap
+    iterations, same as the confidence intervals.
 
     Args:
         n (int): Number of times the data gets resampled and perturbed.
@@ -37,12 +37,13 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
         model_function (callable): The model function to be used for fitting.
         known_params (dict(str: float)): Dict containing the known parameters
             and their values.
-        initial_guess (dict(str: float)): Dict containing the unknown parameters
+        initial_guess (dict(str: float)): Dict containing the free parameters
             and the initial guess for each.
         y_err_std (list or numpy.ndarray, optional): The standard deviation
             of the y-values.
-        known_params_err_sigma (dict(str: float), optional): The standard
-            deviation of each known parameter.
+        known_params (dict(str: float or numpy.ndarray)): Dict mapping the known
+            parameter names to their known values. The values are allowed to be
+            different for each data point.
         only_positive (bool, optional): Flag that controls if the fit parameters
             are allowed to be only positive.
         return_samples (bool, optional): Flag that controls whether the
@@ -59,6 +60,8 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     y_data = np.array(y_data)
     if y_err_std is not None:
         y_err_std = np.array(y_err_std)
+
+    n_points = len(x_data)
 
     # check if provided standard deviations for known parameters match the
     # known parameters dict
@@ -77,6 +80,20 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             raise ValueError("Mismatch between known parameters and " \
                 + "known parameters error dict.\n" + "\n".join(msg))
 
+    # validate known dict contents for shape
+    for param_name, value in known_params.items():
+        arr = np.atleast_1d(value)
+        if arr.ndim != 1:
+            raise ValueError(
+                f"Known parameter '{param_name}' must be scalar or a 1D array, "
+                f"but got shape {arr.shape}."
+            )
+        if arr.size != 1 and arr.size != n_points:
+            raise ValueError(
+                f"Known parameter '{param_name}' must be scalar or length "
+                f"{n_points}, but got length {arr.size}."
+            )
+
     rng = np.random.default_rng(seed)
 
     # make unique seeds of size n for each worker
@@ -94,6 +111,8 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
 
     # fill the fitting results dict with the results from the parallel execution
     for parallel_result in parallel_results:
+        if parallel_result is None:
+            continue
         # if easy fit didn't work or gives a result almost equal to zero skip
         res = parallel_result.best_fit
         if res is None or np.any(np.isclose(list(res.values()), 0, atol=1e-8)):
@@ -127,9 +146,9 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             (float(lower_percentile), float(upper_percentile))
 
         # calculate robust standard deviation calculated from the percentiles
-        robust_std_dict[param_name] = float((upper_percentile \
-            - lower_percentile) / (2 * 1.96))
-
+        robust_std_dict[param_name] = float((np.percentile(values, 84.13) \
+            - np.percentile(values, 15.87))) / 2
+    
     # count how many iterations were skipped
     n_valid_per_param = [len(v) for v in bootstrap_samples.values()]
     n_valid = sum(n_valid_per_param) / len(initial_guess)
@@ -159,7 +178,7 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
         model_function (callable): The model function to be used for fitting.
         known_params (dict): Dict containing the known parameters and their
             values.
-        initial_guess (dict): Dict containing the unknown parameters and the
+        initial_guess (dict): Dict containing the free parameters and the
             initial guess for each.
         y_err_std (list or numpy.ndarray, optional): The standard deviation
             of the y-values.
@@ -187,15 +206,27 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
 
     # if standard deviations for the known parameters are provided perturb
     # each accordingly using the normal distribuation
-    known_params_perturbed = known_params.copy()
-    if known_params_err_sigma is not None:
-        for param_name, value in known_params_perturbed.items():
-            known_params_perturbed[param_name] = rng.normal(loc=value,
-                scale=known_params_err_sigma[param_name])
-            # allow only positive parameters in normal perturbation if specified
-            if only_positive:
-                known_params_perturbed[param_name] = max(0,
-                    known_params_perturbed[param_name])
+    # if known values are point-dependent -> no perturbation
+    known_params_perturbed = {}
+    for param_name, value in known_params.items():
+        if np.isscalar(value):
+            # scalar value -> perturb if sigma is given
+            if known_params_err_sigma is not None:
+                # perturb according to given standard deviation
+                perturbed = rng.normal(loc=value, scale=
+                    known_params_err_sigma[param_name])
+                # ensure result is positive if only positive flag is set
+                if only_positive:
+                    perturbed = max(0, perturbed)
+                known_params_perturbed[param_name] = perturbed
+            else:
+                # if no standard deviations are provided for each parameter
+                # don't perturb them -> only resampling
+                known_params_perturbed[param_name] = value
+
+        else:
+            # array -> just resample, no perturbation
+            known_params_perturbed[param_name] = value[random_indices]
 
     # calculate the fit with the randomly sampled data points and perturbed
     # known parameters

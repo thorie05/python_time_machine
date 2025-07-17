@@ -1,8 +1,8 @@
-from easy_fit import easy_fit
-from bootstrap_fit import bootstrap_fit
+from fitting_engine import easy_fit
+from fitting_engine import bootstrap_fit
 import numpy as np
 import matplotlib.pyplot as plt
-import models
+from fitting_engine import models
 
 order = 1.0
 sigma_phi = 5
@@ -16,7 +16,7 @@ x_data = np.linspace(0, 3, 30)
 y_data = models.expo_buri_expo(x_data, order, sigma_phi, mu, f, t_exposure_1,
     t_burial_1, t_exposure_2)
 
-perturbation = np.random.normal(loc=0.0, scale=0.1, size=x_data.shape)
+perturbation = np.random.normal(loc=0.0, scale=0.05, size=x_data.shape)
 y_data = y_data + perturbation
 y_data = np.clip(y_data, 0, 1)
 
@@ -25,11 +25,11 @@ easy_fit_result = easy_fit(x_data, y_data, models.expo_buri_expo,
     {"t_exposure_1": 1000, "t_burial_1": 100, "t_exposure_2": 100},
     only_positive=True)
 
-bootstrap_fit_result = bootstrap_fit(1_000, x_data,
+bootstrap_fit_result = bootstrap_fit(10_000, x_data,
     y_data, models.expo_buri_expo, {"order": order, "sigma_phi": sigma_phi,
     "mu": mu, "f": f}, {"t_exposure_1": 300, "t_burial_1": 100,
     "t_exposure_2": 100}, known_params_err_sigma={"order": 0.0, "sigma_phi":
-    0.0, "mu": 0.0, "f": 0.0}, only_positive=True, return_samples=True)
+    0.5, "mu": 0.1, "f": 0.0}, only_positive=True, return_samples=True)
 
 # t_exposure_1 fit
 t_exposure_1_easy_fit = easy_fit_result.best_fit["t_exposure_1"]
