@@ -1,12 +1,23 @@
 import numpy as np
 
 # All time variables are interpreted as consecutive timespans, not timestamps.
-# For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_1 = 10 means:
+# For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_2 = 10 means:
 # Starting from full saturation, followed by 1000 time units of exposure,
 # followed by 100 time units of burial, followed by 10 time units of exposure.
+# Thus the total age since full saturation is 1110 time units.
+
+# The order parameter is subtacted by 1, meaning an order of 0.0 in the code is
+# equivalent to the first-order model or an order of 1.2 in the code is
+# equivalent to the general-order model with an order of 2.2. This makes the
+# implementation easier, because now all parameters (sigma_phi, mu, f and order)
+# are always non-negative. Therefore, the only_positive flag is enough for all
+# parameters, without making an exception for the order parameter, which
+# otherwise would have only allowed values greater than 1. This becomes relevant
+# when the known parameters including order are perturbed according to the half-
+# normal distribution, as in bootstrap_fit or bayesian_fit.
 
 
-def expo(x, order, sigma_phi, mu, t_exposure_1):
+def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
     """Mathematical model for a single exposure curve starting from saturation.
 
     Args:
@@ -21,15 +32,18 @@ def expo(x, order, sigma_phi, mu, t_exposure_1):
             depth x in the rock.
     """
 
-    # check if order of the model is 1 -> single order kinetics
-    if np.isclose(order, 1.0, rtol=1e-9, atol=0.0):
-        return np.exp(-sigma_phi * t_exposure_1 * np.exp(-mu * x))
-    # else general order kinetics
-    return ((order - 1) * sigma_phi * t_exposure_1 * np.exp(-mu * x) + 1)**(1 \
-        / (1 - order))
+    # avoid having two different formulas for the first- and second-order models
+    # by treating the first order model as general order model with an order of
+    # 1.000001 making it practically indistinguishable from the real first order
+    # model
+    eps = 1e-6
+    order = math.maximum(order, eps)
+
+    return (order * sigma_phi * t_exposure_1 * math.exp(-mu * x) + 1) \
+        **(-1 / order)
 
 
-def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1):
+def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
     """Mathematical model for an exposure-burial curve starting from saturation.
 
     Args:
@@ -51,11 +65,11 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1):
     l_initial_condition = expo(x, order, sigma_phi, mu, t_exposure_1)
 
     # burial works same for single and general order kinetics
-    return 1 - (1 - l_initial_condition) * np.exp(-f * t_burial_1)
+    return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_1)
 
 
 def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
-    t_exposure_2):
+    t_exposure_2, math=np):
     """Mathematical model for an exposure-burial-exposure curve starting from
         saturation.
 
@@ -79,10 +93,12 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
     l_initial_condition = expo_buri(x, order, sigma_phi, mu, f, t_exposure_1,
         t_burial_1)
 
-    # check if order of the model is 1 -> single order kinetics
-    if np.isclose(order, 1.0, rtol=1e-9, atol=0.0):
-        return l_initial_condition * np.exp(-sigma_phi * t_exposure_2 \
-            * np.exp(-mu * x))
-    # else general order kinetics
-    return l_initial_condition * ((order - 1) * sigma_phi * t_exposure_2 \
-        * np.exp(-mu * x) + 1)**(1 / (1 - order))
+    # avoid having two different formulas for the first- and second-order models
+    # by treating the first order model as general order model with an order of
+    # 1.000001 making it practically indistinguishable from the real first order
+    # model
+    eps = 1e-6
+    order = math.maximum(order, eps)
+
+    return l_initial_condition * (order * sigma_phi * t_exposure_2 \
+        * math.exp(-mu * x) + 1)**(-1 / order)

@@ -30,10 +30,10 @@ def scientist_experiment(n):
 
 results = {}
 
-for n in range(10, 200):
+for n in range(10, 100):
     print(n)
     results[n] = []
-    for _ in range(10_000):
+    for _ in range(1_000):
         t_exposure = scientist_experiment(n)
         results[n].append(t_exposure)
 
