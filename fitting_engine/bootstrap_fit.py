@@ -82,36 +82,50 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     confidence_interval_dict = {}
     robust_std_dict = {}
 
-    for param_name, values in bootstrap_samples.items():
-        values = np.array(values)
+    # calculate the number of successful bootstrap samples
+    try:
+        num_successful = len(next(iter(bootstrap_samples.values())))
+    except StopIteration:
+        num_successful = 0
 
-        # if theoretically all bootstrap iterations fail for a parameter return
-        # None for every metric
-        if len(values) == 0:
-            best_fit_dict[param_name] = None
-            confidence_interval_dict[param_name] = None
-            robust_std_dict[param_name] = None
-            continue
+    # only return success if there are more than 30 successful samples and the
+    # success rate is larger than 95%
+    success = False
+    if num_successful > 0.95 * n and num_successful > 30:
+        success = True
 
-        # median instead of mean for fit results as it can be more stable
-        best_fit_dict[param_name] = np.median(values)
+    if num_successful > 0:
+        for param_name, values in bootstrap_samples.items():
+            values = np.array(values)
 
-        # calculate lower and upper percentile for 95% confidence range instead
-        # of plain standard deviation since the error can be asymetric
-        lower_percentile = np.percentile(values, 2.5)
-        upper_percentile = np.percentile(values, 97.5)
-        confidence_interval_dict[param_name] = \
-            (float(lower_percentile), float(upper_percentile))
+            # if theoretically all bootstrap iterations fail for a parameter
+            # return None for every metric
+            if len(values) == 0:
+                best_fit_dict[param_name] = None
+                confidence_interval_dict[param_name] = None
+                robust_std_dict[param_name] = None
+                continue
 
-        # calculate robust standard deviation calculated from the percentiles
-        # to avoid obscuring the results with unplausible outliers
-        robust_std_dict[param_name] = float((np.percentile(values, 84.13) \
-            - np.percentile(values, 15.87))) / 2
+            # median instead of mean for fit results as it can be more stable
+            best_fit_dict[param_name] = np.median(values)
+
+            # calculate lower and upper percentile for 95% confidence range
+            # instead of standard deviation since the error can be asymetric
+            lower_percentile = np.percentile(values, 2.5)
+            upper_percentile = np.percentile(values, 97.5)
+            confidence_interval_dict[param_name] = \
+                (float(lower_percentile), float(upper_percentile))
+
+            # calculate robust standard deviation calculated from the
+            # percentiles instead of the normal way to avoid obscuring the
+            # results with unplausible outliers
+            robust_std_dict[param_name] = float((np.percentile(values, 84.13) \
+                - np.percentile(values, 15.87))) / 2
 
     # construct fit result dataclass to be returned
-    fit_result = FitResult(best_fit=best_fit_dict, confidence_interval=
-        confidence_interval_dict, robust_std=robust_std_dict,
-        samples=bootstrap_samples)
+    fit_result = FitResult(success=success, best_fit=best_fit_dict,
+        confidence_interval=confidence_interval_dict,
+        robust_std=robust_std_dict, samples=bootstrap_samples)
 
     return fit_result
 
@@ -188,12 +202,12 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
 
     # calculate the fit with the randomly sampled data points and perturbed
     # known parameters
-    try:
-        fitting_results = easy_fit(x_data_resampled, y_data_resampled,
-            model_function, known_params_perturbed, initial_guess,
-            y_err_std=y_err_std_resampled, only_positive=only_positive)
-        return fitting_results
+    fitting_results = easy_fit(x_data_resampled, y_data_resampled,
+        model_function, known_params_perturbed, initial_guess,
+        y_err_std=y_err_std_resampled, only_positive=only_positive)
+
     # occasionally the scipy curve fit could fail if it doesn't find the
     # best fit in the required number of steps -> skip such cases
-    except RuntimeError:
-        return None
+    if fitting_results.success:
+        return fitting_results
+    return None

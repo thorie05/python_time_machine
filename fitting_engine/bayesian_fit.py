@@ -1,5 +1,7 @@
 import pymc as pm
 import numpy as np
+import arviz
+import re
 from .fit_result_dataclass import FitResult
 
 
@@ -47,7 +49,7 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         See documentation for details.
     """
 
-    with pm.Model() as model:
+    with pm.Model():
         # define known parameters (with perturbation if std given)
         uncertain_known_params = {}
         for param_name, param_mu in known_params.items():
@@ -117,7 +119,48 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         robust_std[param_name] = float(std)
         posterior_samples[param_name] = samples
 
-    result = FitResult(best_fit=best_fit, confidence_interval \
-        =confidence_interval, robust_std=robust_std, samples=posterior_samples)
+    # get all time parameters
+    t_parameters = [name for name in free_params_priors if name.startswith("t")]
+
+    # array that holds the total elapsed time since the different exposure and
+    # burial event instead of the timespans obtained through the fit
+    time_since_events = []
+
+    # only calculate elapsed time spans if times are given as free parameters
+    # which isn't the case for calibration samples
+    if t_parameters:
+        # the order should be: t_exposure_1, t_burial_1, t_exposure_2, ...
+        sorted_t_parameters = sorted(t_parameters,key= \
+            lambda name: (int(re.search(r"\d+", name).group()),
+            0 if "exposure" in name else 1))
+
+        cumulative_sum = np.zeros(
+            len(posterior_samples[sorted_t_parameters[0]]))
+
+        for param_name in reversed(sorted_t_parameters):
+            # cumulatively add the timespans belonging together from each sample
+            cumulative_sum += posterior_samples[param_name]
+            median = np.median(cumulative_sum)
+            lower, upper = np.percentile(cumulative_sum, [2.5, 97.5])
+            time_since_events.append((float(median),
+                (float(lower), float(upper))))
+
+        time_since_events.reverse()
+
+    # fit summary
+    summary = arviz.summary(trace, var_names=list(free_params_priors.keys()),
+        round_to=None, kind="all")
+
+    # conditions for successful fit
+    rhat_ok = np.all(np.abs(summary["r_hat"] - 1) < 0.05)
+    ess_ok = np.all(summary["ess_bulk"] > 1000)
+    no_divergences = trace.sample_stats["diverging"].values.sum() == 0
+
+    # fit is only successful if all conditions are satisfied
+    success = rhat_ok and ess_ok and no_divergences
+
+    result = FitResult(success=success, best_fit=best_fit,
+        confidence_interval =confidence_interval, robust_std=robust_std,
+        samples=posterior_samples, time_since_events=time_since_events)
 
     return result

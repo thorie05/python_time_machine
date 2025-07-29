@@ -69,9 +69,11 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
             [np.inf] * len(free_param_names))
 
     # apply least squares fit with custom residual function
-    result = least_squares(residuals, x0=initial_guess_array, bounds=bounds,
-        max_nfev=10_000,)
+    try:
+        result = least_squares(residuals, x0=initial_guess_array, bounds=bounds,
+            max_nfev=10_000,)
+        fitted_params = dict(zip(free_param_names, result.x))
+    except RuntimeError:
+        return FitResult(success=False)
 
-    fitted_params = dict(zip(free_param_names, result.x))
-
-    return FitResult(best_fit=fitted_params)
+    return FitResult(success=True, best_fit=fitted_params)
