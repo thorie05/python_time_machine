@@ -1,47 +1,52 @@
 import numpy as np
 from . import models
-from .easy_fit import easy_fit
-from .bootstrap_fit import bootstrap_fit
+from .full_fit import full_fit
 
 class Calibrator:
     """Class that computes sigma-phi and mu from given calibration data.
 
-    The Calibrator class stores n, the number of bootstrap iterations and the
-    order parameter of the model function, along with any added calibration
-    datasets.It lazily recalculates the dependent results, sigma-phi and
-    mu, whenever n, order or the calibration data change. The class uses
-    Python's @property syntax to expose attribute access for n and order.
-    Internally, the actual data is stored in private variables (with leading
-    underscores), while the properties automatically trigger recalculation upon
-    any change. This ensures that external code can safely read and update the
-    known inputs, while always getting up-to-date results for sigma-phi and mu.
+    It lazily recalculates sigma-phi and mu when any of the relevant
+    parameters or input data changes. Lazily means that the current results are
+    marked as dirty and only actually recalculated when accessed. This is
+    behavior is achieved with the help of Python's @property syntax.
 
     Attributes:
-        n (int): The number of bootstrap iterations.
         order (float): The order of the model function to be used.
+        order_std (float): The standard deviation of the uncertain order.
         sigma_phi (float): The computed sigma-phi value.
         sigma_phi_std (float): The computed standard deviation of sigma-phi.
         mu (float): The computed mu value.
         mu_std (float): The computed standard deviation of mu.
-        bootstrap_samples (dict(std: list(float))): Samples of each bootstrap
-            iteration.
+        samples (dict(std: list(float))): Samples of the posterior distribution
+            for each free parameter.
+        fit_quality (str): String determining the quality of the fit result.
+        verbose (bool): Bool flag controling console output.
     """
 
-    def __init__(self, n, order, initial_guess_sigma_phi=5,
-        initial_guess_mu=5):
+    def __init__(self, order, order_std, fit_quality="medium", verbose=False):
         """
         Args:
-            n (int): The number of bootstrap iterations.
             order (float): The order of the model function to be used.
-            initial_guess_sigma_phi (float): The initial guess for sigma-phi.
-            initial_guess_mu (float): The initial guess for mu.
+            order_std (float): The standard deviation of the uncertain order.
+            fit_quality (str, optional): Optional string affecting fit quality.
+            verbose (bool, optional): Optional flag controling console output.
         """
 
-        self._n = n
+        # hardcoded sigma_phi and mu bounds
+        self.sigma_phi_bounds = (0, 10)
+        self.mu_bounds = (0, 10)
+
+        # verbose flag
+        self.verbose = verbose
+
+        # shows whether the current results are up to data or "dirty", meaning
+        # they need to be recalculated when a results are accessed
         self._dirty = True
 
-        # known parameter
+        # known parameters
         self._order = order
+        self._order_std = order_std
+        self._fit_quality = fit_quality
 
         # calibration input datasets
         self._t_exposure_list = []
@@ -49,35 +54,31 @@ class Calibrator:
         self._y_data_list = []
         self._y_err_std_list = []
 
-        # initial guesses
-        self.initial_guess_sigma_phi = initial_guess_sigma_phi
-        self.initial_guess_mu = initial_guess_mu
-
         # final calibration results
         self._sigma_phi = None
         self._sigma_phi_std = None
         self._mu = None
         self._mu_std = None
-        self._bootstrap_samples = None
+        self._samples = None
 
     @property
-    def n(self):
+    def fit_quality(self):
         """
         Returns:
-            int: The number of bootstrap iterations.
+            str: The fit quality used for the bayesian fit.
         """
 
-        return self._n
+        return self._fit_quality
 
-    @n.setter
-    def n(self, value):
-        """Sets n and lazily recalculates the results.
+    @fit_quality.setter
+    def fit_quality(self, value):
+        """Sets the fit quality and lazily recalculates.
 
         Args:
-            value (int): The new number of bootstrap iterations.
+            value (str): The new fit quality, 'low', 'medium', or 'high'.
         """
 
-        self._n = value
+        self._fit_quality = value
         self._dirty = True
 
     @property
@@ -91,7 +92,7 @@ class Calibrator:
 
     @order.setter
     def order(self, value):
-        """Sets the order parameter and lazily recalculates the results.
+        """Sets the order parameter and lazily recalculates.
 
         Args:
             value (float): The new order parameter.
@@ -101,13 +102,35 @@ class Calibrator:
         self._dirty = True
 
     @property
+    def order_std(self):
+        """
+        Returns:
+            float: The standard deviation of order.
+        """
+
+        return self._order_std
+
+    @order_std.setter
+    def order_std(self, value):
+        """Sets the standard deviation of order and lazily recalculates.
+
+        Args:
+            value (float): The new standard deviation of order.
+        """
+
+        self._order_std = value
+        self._dirty = True
+
+    @property
     def sigma_phi(self):
         """
         Returns:
             float: The computed sigma-phi parameter.
         """
 
-        self._recalculate()
+        # only recalculate if any of the input parameters has changed
+        if self._dirty:
+            self._recalculate()
         return self._sigma_phi
 
     @property
@@ -117,7 +140,9 @@ class Calibrator:
             float: The computed standard deviation of sigma-phi.
         """
 
-        self._recalculate()
+        # only recalculate if any of the input parameters has changed
+        if self._dirty:
+            self._recalculate()
         return self._sigma_phi_std
 
     @property
@@ -127,7 +152,9 @@ class Calibrator:
             float: The computed mu parameter.
         """
 
-        self._recalculate()
+        # only recalculate if any of the input parameters has changed
+        if self._dirty:
+            self._recalculate()
         return self._mu
 
     @property
@@ -137,21 +164,26 @@ class Calibrator:
             float: The computed standard deviation of mu.
         """
 
-        self._recalculate()
+        # only recalculate if any of the input parameters has changed
+        if self._dirty:
+            self._recalculate()
         return self._mu_std
 
     @property
-    def bootstrap_samples(self):
+    def samples(self):
         """
         Returns:
-            dict(str: list(float)): The bootstrap samples for sigma-phi and mu.
+            dict(str: numpy.ndarray(float)): The posterior samples for sigma-phi
+                and mu.
         """
 
-        self._recalculate()
-        return self._bootstrap_samples
+        # only recalculate if any of the input parameters has changed
+        if self._dirty:
+            self._recalculate()
+        return self._samples
 
-    def add_calibration(self, t_exposure, x_data, y_data, y_err_std=None):
-        """Adds new calibration data and lazily recalculates the results.
+    def add_calibration(self, t_exposure, x_data, y_data, y_err_std):
+        """Adds new calibration data and lazily recalculates.
 
         Args:
             t_exposure (float): Exposure time.
@@ -159,8 +191,8 @@ class Calibrator:
                 points.
             y_data (list or numpy.ndarray): The y-data of the calibration data
                 points.
-            y_err_std (list or numpy.ndarray, optional): The standard deviation
-                of the y-values.
+            y_err_std (list or numpy.ndarray): The standard deviation of the
+                y-values.
         """
 
         self._t_exposure_list.append(t_exposure)
@@ -168,18 +200,10 @@ class Calibrator:
         self._y_data_list.append(y_data)
         self._y_err_std_list.append(y_err_std)
 
-        # check that y error standard deviations are either provided for all
-        # datapoints or for none, no mixture is allowed
-        flags = [val is not None for val in self._y_err_std_list]
-        # if there's a mix of True and False, raise error
-        if len(set(flags)) > 1:
-            raise ValueError("Either all y errors must be None or all must"
-                " have values, no mixture allowed.")
-
         self._dirty = True
 
     def erase_calibration(self, index):
-        """Removes calibration data at the given index and recalculates results.
+        """Removes calibration data at the given index and lazily recalculates.
 
         Args:
             index (int): Index of the calibration dataset to remove.
@@ -192,27 +216,34 @@ class Calibrator:
 
         self._dirty = True
 
-    def _recalculate(self):
-        """Lazily recalculates sigma-phi and mu values."""
+    def clear_calibrations(self):
+        """Clears all calibration datasets."""
 
-        # only do the heavy calculation when something has changed
-        if not self._dirty:
-            return
+        self._t_exposure_list.clear()
+        self._x_data_list.clear()
+        self._y_data_list.clear()
+        self._y_err_std_list.clear()
+        self._dirty = True
+
+    def _recalculate(self):
+        """Recalculates the sigma-phi and mu values."""
+
+        # after recalculation all values are up-to-date again
+        self._dirty = False
 
         # ensure that the calibration datasets are not empty
         if not self._x_data_list:
-            self.sigma_phi = None
-            self.sigma_phi_std = None
-            self.mu = None
-            self.mu_std = None
+            self._sigma_phi = None
+            self._sigma_phi_std = None
+            self._mu = None
+            self._mu_std = None
+            self._samples = None
             return
 
         # combine individual calibration samples into one large dataset
         x_data_combined = np.concatenate(self._x_data_list)
         y_data_combined = np.concatenate(self._y_data_list)
-        y_err_std_combined = None
-        if self._y_err_std_list[0] is not None:
-            y_err_std_combined = np.concatenate(self._y_err_std_list)
+        y_err_std_combined = np.concatenate(self._y_err_std_list)
 
         # each datapoint gets an individual t_exposure value for the global fit
         t_exposure_combined = np.concatenate(
@@ -224,24 +255,21 @@ class Calibrator:
         # can be used
         known_params = {"order": self._order,
             "t_exposure_1": t_exposure_combined}
-
-        initial_guess = {"sigma_phi": self.initial_guess_sigma_phi,
-            "mu": self.initial_guess_mu}
+        known_params_err_std = {"order": self._order_std}
+        bounds = {"sigma_phi": self.sigma_phi_bounds, "mu": self.mu_bounds}
 
         # get the best fit values by fitting through the global datasets with
         # individual point values for the exposure time
-        # more accurate than averaging the results of independent calibration
-        # samples and applying a linear fit through the exposure response curve
-        fit_result = bootstrap_fit(self._n, x_data_combined, y_data_combined,
-            models.expo, known_params, initial_guess=initial_guess,
-            y_err_std=y_err_std_combined, only_positive=True,
-            return_samples=True)
+        # this is more accurate than averaging the results of independent
+        # calibration samples or applying a linear fit through the exposure
+        # response curve since all available information is considered at once
+        fit_result = full_fit(x_data_combined, y_data_combined,
+            y_err_std_combined, models.expo, known_params,
+            known_params_err_std, bounds=bounds, quality=self._fit_quality,
+            only_positive=True, verbose=self.verbose)
 
         self._sigma_phi = fit_result.best_fit["sigma_phi"]
         self._sigma_phi_std = fit_result.robust_std["sigma_phi"]
         self._mu = fit_result.best_fit["mu"]
         self._mu_std = fit_result.robust_std["mu"]
-        self._bootstrap_samples = fit_result.bootstrap_samples
-
-        # all data is clean and up-to-date again
-        self._dirty = False
+        self._samples = fit_result.samples

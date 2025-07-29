@@ -181,7 +181,7 @@ def single_bootstrap_iteration(seed, x_data, y_data, model_function,
     for param_name, param_value in known_params.items():
         if np.isscalar(param_value):
             # scalar value -> perturb if sigma is given
-            if param_std := known_params_err_std[param_name]:
+            if param_std := known_params_err_std.get(param_name):
                 # perturb according to given standard deviation
                 if only_positive:
                     # truncated normal distribution -> only positive values

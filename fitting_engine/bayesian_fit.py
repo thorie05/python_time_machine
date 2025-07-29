@@ -2,12 +2,17 @@ import pymc as pm
 import numpy as np
 import arviz
 import re
+import sys
+import os
+import contextlib
+import logging
 from .fit_result_dataclass import FitResult
 
 
 def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
     free_params_priors, y_err_std, known_params_err_std=None,
-    only_positive=False, target_accept=0.95, chains=4, cores=4, seed=None):
+    only_positive=False, target_accept=0.95, chains=4, cores=4, verbose=False,
+    seed=None):
     """
     A fitting function that uses the MCMC method for calculating uncertainties.
 
@@ -28,10 +33,10 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         known_params (dict(str: float or numpy.ndarray)): Dict mapping the known
             parameter names to their known values. If an array is passed it
             has to have the same length as the number of data points.
-        free_params_priors (dict(str: Tuple(float, float))): A dictionary
-            mapping the free parameter names to a tuple containing the most
-            likely value e.g. initial guess along with the expected standard
-            deviation. Serves as a prior for the MCMC model.
+        free_params_priors (dict(str: Tuple(float, float))): A dict mapping the
+            free parameter names to a tuple containing the most likely value
+            e.g. initial guess along with the expected standard deviation.
+            Serves as a prior for the MCMC model.
         y_err_std (numpy.ndarray): The standard deviation of the y-values.
         known_params_err_std (dict(str: float), optional): An optional dict
             mapping the known parameter names to standard deviation of their
@@ -39,10 +44,11 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive. Enforces the use of the
             truncated normal distribution instead of the usual one.
-        target_accept (float): PyMC target_accept argument.
-        chains (int): Number MCMC chains.
-        cores (int): Number of parallel chains to run.
-        seed (int, optional): Random number generator seed.
+        target_accept (float): Optional PyMC target_accept argument.
+        chains (int): Optional number MCMC chains.
+        cores (int): Optional number of parallel chains to run.
+        verbose (bool, optional): Optional flag controling console output.
+        seed (int, optional): Optional random number generator seed.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
@@ -95,8 +101,17 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         pm.Normal("obs", mu=model_y, sigma=y_err_std, observed=y_data)
 
         # run mcmc
-        trace = pm.sample(draws=draws, tune=tune, target_accept=target_accept,
-            chains=chains, cores=cores, progressbar=True, random_seed=seed)
+        if not verbose:
+            # silence console output and logging
+            logging.disable(logging.CRITICAL)
+            with no_output():
+                trace = pm.sample(draws=draws, tune=tune,
+                    target_accept=target_accept, chains=chains, cores=cores,
+                    progressbar=False, random_seed=seed)
+        else:
+            trace = pm.sample(draws=draws, tune=tune,
+                target_accept=target_accept, chains=chains, cores=cores,
+                progressbar=True, random_seed=seed)
 
     # extract results
     best_fit = {}
@@ -164,3 +179,17 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         samples=posterior_samples, time_since_events=time_since_events)
 
     return result
+
+
+@contextlib.contextmanager
+def no_output():
+    """Context manager to suppress all stdout and stderr output."""
+
+    with open(os.devnull, 'w') as devnull:
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout = sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
