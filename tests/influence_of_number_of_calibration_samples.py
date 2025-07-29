@@ -27,7 +27,7 @@ for k in range(1, max_num_of_samples + 1):
     results_mu_std.append([])
     for j in range(500):
         print(k, j)
-        t_exposure_list = [100] * k
+        t_exposure_list = [1000] * k
         x_data_list = []
         y_data_list = []
         y_err_std_list = []

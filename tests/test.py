@@ -21,7 +21,7 @@ f_std = 0.00001
 # true values of the measured sample used for generating the data
 true_t_exposure_1 = 3_000
 true_t_burial_1 = 10_000
-true_t_exposure_2 = 100
+true_t_exposure_2 = 10
 
 # exposure times of the calibration samples
 calibration_t_exposure = [10, 100, 1000] 
@@ -44,7 +44,7 @@ for i, t_exposure in enumerate(calibration_t_exposure):
     perturbation = np.random.normal(loc=0.0, scale=true_y_err_std,
         size=calibration_x_data[i].shape)
 
-    calibration_y_data[i] = calibration_y_data[i] + perturbation
+    calibration_y_data[i] += perturbation
     # allow only non-zero measurements
     calibration_y_data[i] = np.maximum(calibration_y_data[i], 0)
 
@@ -55,6 +55,12 @@ for i, t_exposure in enumerate(calibration_t_exposure):
 x_data = np.linspace(0, 3, 30)
 y_data = models.expo_buri_expo(x_data, true_order, true_sigma_phi, true_mu,
     true_f, true_t_exposure_1, true_t_burial_1, true_t_exposure_2)
+# add random perturbation
+perturbation = np.random.normal(loc=0.0, scale=true_y_err_std,
+    size=calibration_x_data[i].shape)
+y_data += perturbation
+# allow only non-zero measurements
+y_data = np.maximum(y_data, 0)
 
 # generate known f by perturbing the true value according to std
 known_f = np.random.normal(loc=true_f, scale=f_std)
@@ -104,30 +110,34 @@ fit_result = full_fit(x_data, y_data, y_err_std, models.expo_buri_expo,
     known_params, known_params_err_std, bounds=bounds, only_positive=True)
 
 
-###################
-# Fitting results #
-###################
+#################
+# Print results #
+#################
 
 if not fit_result.success:
     print("Problems occured: The fit results may not be reliable.")
     print()
 
+print("Fitting results:")
+
+t_exposure_1 = fit_result.best_fit["t_exposure_1"]
+t_burial_1 = fit_result.best_fit["t_burial_1"]
+t_exposure_2 = fit_result.best_fit["t_exposure_2"]
+
+print("Timespans:")
+print(f"t_exposure_1: {t_exposure_1}, 95% confidence: "
+    f"{fit_result.confidence_interval["t_exposure_1"][0]} - "
+    f"{fit_result.confidence_interval["t_exposure_1"][1]}")
+print(f"t_burial_1: {t_burial_1}, 95% confidence: "
+    f"{fit_result.confidence_interval["t_burial_1"][0]} - "
+    f"{fit_result.confidence_interval["t_burial_1"][1]}")
+print(f"t_exposure_2: {t_exposure_2}, 95% confidence: "
+    f"{fit_result.confidence_interval["t_exposure_2"][0]} - "
+    f"{fit_result.confidence_interval["t_exposure_2"][1]}")
+
 time_since_exposure_1 = fit_result.time_since_events[0]
 time_since_burial_1 = fit_result.time_since_events[1]
 time_since_exposure_2 = fit_result.time_since_events[2]
-
-print("Fitting results:")
-
-print("Timespans:")
-print(f"t_exposure_1: {fit_result.best_fit["t_exposure_1"]}, 95% confidence: "
-    f"{fit_result.confidence_interval["t_exposure_1"][0]} - "
-    f"{fit_result.confidence_interval["t_exposure_1"][1]}")
-print(f"t_burial_1: {fit_result.best_fit["t_burial_1"]}, 95% confidence: "
-    f"{fit_result.confidence_interval["t_burial_1"][0]} - "
-    f"{fit_result.confidence_interval["t_burial_1"][1]}")
-print(f"t_exposure_2: {fit_result.best_fit["t_exposure_2"]}, 95% confidence: "
-    f"{fit_result.confidence_interval["t_exposure_2"][0]} - "
-    f"{fit_result.confidence_interval["t_exposure_2"][1]}")
 
 print("Time since events:")
 print(f"time since exposure 1: {time_since_exposure_1[0]}, 95% confidence: "
@@ -136,3 +146,17 @@ print(f"time since burial 1: {time_since_burial_1[0]}, 95% confidence: "
     f"{time_since_burial_1[1][0]} - {time_since_burial_1[1][1]}")
 print(f"time since exposure 2: {time_since_exposure_2[0]}, 95% confidence: "
     f"{time_since_exposure_2[1][0]} - {time_since_exposure_2[1][1]}")
+
+
+#####################
+# Plot fitted curve #
+#####################
+
+# calculate fitted curve
+x_data_fit = np.linspace(0, 3, 500)
+y_data_fit = models.expo_buri_expo(x_data_fit, true_order, cal.sigma_phi,
+    cal.mu, known_f, t_exposure_1, t_burial_1, t_exposure_2)
+
+plt.scatter(x_data, y_data, color="red")
+plt.plot(x_data_fit, y_data_fit)
+plt.show()
