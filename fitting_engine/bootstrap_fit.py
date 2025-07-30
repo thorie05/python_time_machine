@@ -38,7 +38,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
         y_err_std (numpy.ndarray, optional): The standard deviation of the
             y-values.
         known_params_err_std (dict(str: float), optional): An optional dict
-            mapping the known parameter names to standard deviation of their
+            mapping the known parameter names to the standard deviation of their
             uncertain known values.
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
@@ -48,12 +48,6 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
         FitResult: Dataclass containing all relevant information about a fit.
         See documentation for details.
     """
-
-    # convert input data to np arrays if given as lists
-    x_data = np.array(x_data)
-    y_data = np.array(y_data)
-    if y_err_std is not None:
-        y_err_std = np.array(y_err_std)
 
     rng = np.random.default_rng(seed)
 

@@ -3,6 +3,7 @@ from .bootstrap_fit import bootstrap_fit
 from .bayesian_fit import bayesian_fit
 from .full_fit import full_fit
 from .calibrator import Calibrator
+from .bounds_dataclass import Bounds
 from . import models
 
 
@@ -36,6 +37,7 @@ class FittingEngine:
     def __init__(self):
         self.calibrator = None # not initialized yet
         self.models = models
+        self.bounds = Bounds()
 
     def init_calibrator(self, order, order_std, fit_quality="medium",
         verbose=False):

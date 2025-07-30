@@ -9,13 +9,12 @@ def main():
     """Main function."""
 
     app = QApplication()
-
     engine = FittingEngine()
-
     window = MainWindow(engine)
     window.show()
 
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

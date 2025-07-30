@@ -13,8 +13,8 @@ import numpy as np
 # are always non-negative. Therefore, the only_positive flag is enough for all
 # parameters, without making an exception for the order parameter, which
 # otherwise would have only allowed values greater than 1. This becomes relevant
-# when the known parameters including order are perturbed according to the half-
-# normal distribution, as in bootstrap_fit or bayesian_fit.
+# when the known parameters including order are perturbed according to the
+# truncated-normal distribution, as in bootstrap_fit or bayesian_fit.
 
 
 def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
@@ -102,3 +102,29 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
 
     return l_initial_condition * (order * sigma_phi * t_exposure_2 \
         * math.exp(-mu * x) + 1)**(-1 / order)
+
+def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
+    t_exposure_2, t_burial_2, math=np):
+    """Mathematical model for an exposure-burial-exposure-burial curve.
+
+    Args:
+        x (float or numpy.ndarray): The depth(s) in the rock.
+        order (float): Order of the mathematical model used.
+        sigma_phi (float): Sigma-phi value, detrapping rate at the surface.
+        mu (float): Mu value, light attenuation coefficient in the rock.
+        f (float): f = D*(x) / D_0, charge filling rate in the rock, here
+            assumend as a constant.
+        t_exposure_1 (float): Exposure time of the rock surface.
+        t_burial_1 (float): Burial time of the rock surface.
+
+    Returns:
+        float or numpy.ndarray: The strength of the luminescence signal at
+            depth x in the rock.
+    """
+
+    # get initial condition for the luminescence profile
+    l_initial_condition = expo_buri_expo(x, order, sigma_phi, mu, f,
+        t_exposure_1, t_burial_1, t_exposure_2)
+
+    # burial works same for single and general order kinetics
+    return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_2)

@@ -55,7 +55,8 @@ for i in range(1_000):
 
 print(sigma_phi_lst[index])
 x_data_fit = np.linspace(0, 3, 100)
-y_data_fit = expo(x_data_fit, order, sigma_phi_lst[index], mu_lst[index], t_exposure)
+y_data_fit = expo(x_data_fit, order, sigma_phi_lst[index], mu_lst[index],
+    t_exposure)
 y_data_true = expo(x_data_fit, order, true_sigma_phi, true_mu, t_exposure)
 
 plt.plot(x_data_fit, y_data_fit, color="red", label="fit")

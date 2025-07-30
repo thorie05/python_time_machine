@@ -1,8 +1,11 @@
+# run with PYTHONPATH=. python tests/test.py
+
 from fitting_engine import Calibrator, models, full_fit
 import numpy as np
 import matplotlib.pyplot as plt
 
 rng = np.random.default_rng()
+
 
 #########################
 # True parameter values #
@@ -20,11 +23,12 @@ f_std = 0.00001
 
 # true values of the measured sample used for generating the data
 true_t_exposure_1 = 3_000
-true_t_burial_1 = 10_000
+true_t_burial_1 = 5_000
 true_t_exposure_2 = 10
+true_t_burial_2 = 3_000
 
 # exposure times of the calibration samples
-calibration_t_exposure = [10, 100, 1000] 
+calibration_t_exposure = [10, 100]
 
 
 ######################
@@ -53,8 +57,9 @@ for i, t_exposure in enumerate(calibration_t_exposure):
 
 # generate measuremend sample data
 x_data = np.linspace(0, 3, 30)
-y_data = models.expo_buri_expo(x_data, true_order, true_sigma_phi, true_mu,
-    true_f, true_t_exposure_1, true_t_burial_1, true_t_exposure_2)
+y_data = models.expo_buri_expo_buri(x_data, true_order, true_sigma_phi, true_mu,
+    true_f, true_t_exposure_1, true_t_burial_1, true_t_exposure_2,
+    true_t_burial_2)
 # add random perturbation
 perturbation = np.random.normal(loc=0.0, scale=true_y_err_std,
     size=calibration_x_data[i].shape)
@@ -96,7 +101,7 @@ known_params_err_std = {"sigma_phi": cal.sigma_phi_std, "mu": cal.mu_std,
     "f": f_std}
 # bounds for unknown parameters
 bounds = {"t_exposure_1": (0, 100_000), "t_burial_1": (0, 100_000),
-    "t_exposure_2": (0, 100_000)}
+    "t_exposure_2": (0, 100_000), "t_burial_2": (0, 100_000)}
 y_err_std = np.full(x_data.shape, true_y_err_std)
 
 print("Starting fit with:")
@@ -106,7 +111,7 @@ print(f"mu: {cal.mu}, std: {cal.mu_std}")
 print(f"f: {known_f}, std: {f_std}")
 print()
 
-fit_result = full_fit(x_data, y_data, y_err_std, models.expo_buri_expo,
+fit_result = full_fit(x_data, y_data, y_err_std, models.expo_buri_expo_buri,
     known_params, known_params_err_std, bounds=bounds, only_positive=True)
 
 
@@ -119,10 +124,12 @@ if not fit_result.success:
     print()
 
 print("Fitting results:")
+print()
 
 t_exposure_1 = fit_result.best_fit["t_exposure_1"]
 t_burial_1 = fit_result.best_fit["t_burial_1"]
 t_exposure_2 = fit_result.best_fit["t_exposure_2"]
+t_burial_2 = fit_result.best_fit["t_burial_2"]
 
 print("Timespans:")
 print(f"t_exposure_1: {t_exposure_1}, 95% confidence: "
@@ -134,10 +141,15 @@ print(f"t_burial_1: {t_burial_1}, 95% confidence: "
 print(f"t_exposure_2: {t_exposure_2}, 95% confidence: "
     f"{fit_result.confidence_interval["t_exposure_2"][0]} - "
     f"{fit_result.confidence_interval["t_exposure_2"][1]}")
+print(f"t_burial_2: {t_burial_2}, 95% confidence: "
+    f"{fit_result.confidence_interval["t_burial_2"][0]} - "
+    f"{fit_result.confidence_interval["t_burial_2"][1]}")
+print()
 
 time_since_exposure_1 = fit_result.time_since_events[0]
 time_since_burial_1 = fit_result.time_since_events[1]
 time_since_exposure_2 = fit_result.time_since_events[2]
+time_since_burial_2 = fit_result.time_since_events[3]
 
 print("Time since events:")
 print(f"time since exposure 1: {time_since_exposure_1[0]}, 95% confidence: "
@@ -146,6 +158,8 @@ print(f"time since burial 1: {time_since_burial_1[0]}, 95% confidence: "
     f"{time_since_burial_1[1][0]} - {time_since_burial_1[1][1]}")
 print(f"time since exposure 2: {time_since_exposure_2[0]}, 95% confidence: "
     f"{time_since_exposure_2[1][0]} - {time_since_exposure_2[1][1]}")
+print(f"time since burial 2: {time_since_burial_2[0]}, 95% confidence: "
+    f"{time_since_burial_2[1][0]} - {time_since_burial_2[1][1]}")
 
 
 #####################
@@ -154,9 +168,10 @@ print(f"time since exposure 2: {time_since_exposure_2[0]}, 95% confidence: "
 
 # calculate fitted curve
 x_data_fit = np.linspace(0, 3, 500)
-y_data_fit = models.expo_buri_expo(x_data_fit, true_order, cal.sigma_phi,
-    cal.mu, known_f, t_exposure_1, t_burial_1, t_exposure_2)
+y_data_fit = models.expo_buri_expo_buri(x_data_fit, true_order, cal.sigma_phi,
+    cal.mu, known_f, t_exposure_1, t_burial_1, t_exposure_2, t_burial_2)
 
 plt.scatter(x_data, y_data, color="red")
 plt.plot(x_data_fit, y_data_fit)
+plt.ylim(bottom=0)
 plt.show()
