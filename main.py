@@ -8,8 +8,10 @@ from fitting_engine import FittingEngine
 def main():
     """Main function."""
 
+    verbose = "--verbose" in sys.argv
+
     app = QApplication()
-    engine = FittingEngine()
+    engine = FittingEngine(verbose=True) # only true for debugging
     window = MainWindow(engine)
     window.show()
 

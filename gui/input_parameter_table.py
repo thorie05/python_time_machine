@@ -10,12 +10,12 @@ class InputParameterTable(QWidget):
 
     def __init__(self, engine):
         super().__init__()
-        
+
         # create main grid layout
         self.grid = QGridLayout()
         self.grid.setSpacing(0)  # no spacing between cells
         self.grid.setContentsMargins(0, 0, 0, 0)
-        
+
         # header labels
         headers = ["Input Parameter", "Value", "σ (Standard deviation)"]
         for col, header in enumerate(headers):
@@ -118,7 +118,7 @@ class InputParameterTable(QWidget):
         )
 
         # validator allows only float input
-        validator = QDoubleValidator(bounds[0], bounds[1], 5)
+        validator = QDoubleValidator(bounds[0], bounds[1], 8)
         line_edit.setValidator(validator)
         return line_edit
 

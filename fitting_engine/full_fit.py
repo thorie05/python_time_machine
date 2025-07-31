@@ -5,7 +5,8 @@ from .get_initial_guess import get_initial_guess
 
 def full_fit(x_data, y_data, y_err_std, model_function, known_params,
     known_params_err_std=None, free_params_priors=None, bounds=None,
-    quality="medium", only_positive=False, verbose=False, seed=None):
+    only_positive=False, cores=4, quality="medium", verbose=False, seed=None,
+    status_callback=None):
     """Full fit function that combines bootstrap and bayesian fit.
     
     A wrapper function for the bayesian fit, that estimates free parameter
@@ -37,11 +38,15 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             assumed depending on the only_positive flag.
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
+        cores (int, optional): Optional number of cores to use.
         quality (str, optional): Optional string determining the quality of the
             fit result. Higher quality needs more run-time. Values can be either
             'low', 'medium' or 'high'. The standard value is 'medium'.
         verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
+        status_callback (callable, optional): A callable that receives
+            human-readable status updates at key points in the fitting pipeline.
+            Can be used to update UI text or logs.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
@@ -50,16 +55,22 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
 
     # if no free parameter priors given get the estimates with a bootstrap fit
     if not free_params_priors:
+        if status_callback:
+            status_callback("Finding initial guess...")
+
         # get the initial guess for the bootstrap fit
         initial_guess = get_initial_guess(x_data, y_data, model_function,
             known_params, bounds=bounds, y_err_std=y_err_std,
             only_positive=only_positive)
 
+        if status_callback:
+            status_callback("Estimating priors with Bootstrap...")
+
         # perform a bootstrap fit to obtain free parameter prior estimates
         bootstrap_fit_result = bootstrap_fit(2_000, x_data, y_data,
             model_function, known_params, initial_guess, y_err_std=y_err_std,
             known_params_err_std=known_params_err_std,
-            only_positive=only_positive, seed=seed)
+            only_positive=only_positive, cores=cores, seed=seed)
 
         free_params_priors = {}
         for param_name, param_best_fit in bootstrap_fit_result.best_fit.items():
@@ -80,13 +91,16 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         tune = 1_000
         target_accept = 0.8
     elif quality.lower() == "medium":
-        draws = 5_000
+        draws = 6_000
         tune = 2_000
         target_accept = 0.9
     else:
         draws = 20_000
         tune = 4_000
         target_accept = 0.99
+
+    if status_callback:
+        status_callback("Running MCMC Bayesian fit...")
 
     # perform bayesian fit
     bayesian_fit_result = bayesian_fit(draws, tune, x_data, y_data,

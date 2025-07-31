@@ -25,6 +25,8 @@ class FittingEngine:
         models (module): Reference to the models module, which provides the
             mathematical model functions used for fitting. Use as:
             engine.models.model_name(...).
+        bounds (Bounds): Bounds instance to access bounds for parameters.
+        verbose (bool): Flag controling console output.
 
     Methods:
         init_calibrator
@@ -34,10 +36,11 @@ class FittingEngine:
         full_fit
     """
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.calibrator = None # not initialized yet
         self.models = models
         self.bounds = Bounds()
+        self.verbose = verbose
 
     def init_calibrator(self, order, order_std, fit_quality="medium",
         verbose=False):
@@ -65,22 +68,23 @@ class FittingEngine:
     def bayesian_fit(self, draws, tune, x_data, y_data, model_function,
         known_params, free_params_priors, y_err_std,
         known_params_err_std=None, only_positive=True,
-        target_accept=0.95, verbose=False, seed=None):
+        target_accept=0.95, seed=None):
         """Wrapper method for bayesian_fit."""
 
         return bayesian_fit(draws, tune, x_data, y_data, model_function,
             known_params, free_params_priors, y_err_std,
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, target_accept=target_accept,
-            verbose=verbose, seed=seed)
+            verbose=self.verbose, seed=seed)
 
     def full_fit(self, x_data, y_data, y_err_std, model_function, known_params,
         known_params_err_std=None, free_params_priors=None, bounds=None,
-        quality="medium", only_positive=True, verbose=False, seed=None):
+        quality="medium", only_positive=True, cores=4, seed=None,
+        status_callback=None):
         """Wrapper method for full_fit."""
 
         return full_fit(x_data, y_data, y_err_std, model_function, known_params,
             known_params_err_std=known_params_err_std,
             free_params_priors=free_params_priors, bounds=bounds,
-            quality=quality, only_positive=only_positive, verbose=verbose,
-            seed=seed)
+            quality=quality, only_positive=only_positive, cores=cores,
+            verbose=self.verbose, seed=seed, status_callback=status_callback)

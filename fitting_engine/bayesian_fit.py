@@ -45,8 +45,8 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
             parameters are allowed to be only positive. Enforces the use of the
             truncated normal distribution instead of the usual one.
         target_accept (float): Optional PyMC target_accept argument.
-        chains (int): Optional number MCMC chains.
-        cores (int): Optional number of parallel chains to run.
+        chains (int, optional): Optional number MCMC chains.
+        cores (int, optional): Optional number of cores to use.
         verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
 

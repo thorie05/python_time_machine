@@ -7,7 +7,7 @@ from .fit_result_dataclass import FitResult
 
 def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     initial_guess, y_err_std=None, known_params_err_std=None,
-    only_positive=False, seed=None):
+    only_positive=False, cores=-1, seed=None):
     """A fitting function that uses the bootstrap method to estimate errors. 
 
     A function that takes datapoints and a mathematical model function to
@@ -42,6 +42,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             uncertain known values.
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
+        cores (int, optional): Optional number of cores to use.
         seed (int, optional): Optional random number generator seed.
 
     Returns:
@@ -55,7 +56,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     seeds = rng.integers(low=0, high=np.iinfo(np.uint64).max, size=n,
         dtype=np.uint64)
 
-    parallel_results = Parallel(n_jobs=-1, batch_size="auto") (
+    parallel_results = Parallel(n_jobs=cores, batch_size="auto") (
         delayed(single_bootstrap_iteration)(seed_i, x_data, y_data,
         model_function, known_params, initial_guess, y_err_std,
         known_params_err_std, only_positive=only_positive) \
