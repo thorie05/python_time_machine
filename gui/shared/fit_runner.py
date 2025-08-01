@@ -1,9 +1,10 @@
+import traceback
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 
 class FitRunner(QObject):
     status   = Signal(str)
-    finished = Signal(object)
+    finished = Signal()
     failed   = Signal(str)
 
     def __init__(self, engine, x_data, y_data, y_err, model_function,
@@ -18,6 +19,7 @@ class FitRunner(QObject):
         self.known_params_err_std = known_params_err_std
         self.bounds  = bounds
         self.quality = quality
+        self.result = None
 
         # set up thread
         self._thread = QThread()
@@ -41,11 +43,12 @@ class FitRunner(QObject):
     @Slot()
     def doWork(self):
         try:
-            result = self.engine.full_fit(self.x_data, self.y_data, self.y_err,
-                self.model_function, self.known_params,
+            self.result = self.engine.full_fit(self.x_data, self.y_data,
+                self.y_err, self.model_function, self.known_params,
                 known_params_err_std=self.known_params_err_std,
                 bounds=self.bounds, quality=self.quality, cores=1,
                 status_callback=self.status.emit)
-            self.finished.emit(result)
-        except Exception as e:
-            self.failed.emit(str(e))
+            self.finished.emit()
+        except Exception:
+            tb = traceback.format_exc()
+            self.failed.emit(tb)

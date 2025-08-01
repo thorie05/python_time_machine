@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QSizePolicy, QFrame
 from PySide6.QtCore import Qt
 
-from gui.ui_style import ui_style
+from ..shared.ui_style import ui_style
 
 
 class ResultTable(QWidget):

@@ -2,7 +2,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 
-from gui.ui_style import ui_style
+from .ui_style import ui_style
 
 
 class Plot(FigureCanvas):

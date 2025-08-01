@@ -3,13 +3,19 @@ from PySide6.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QHBoxLayout, \
 from PySide6.QtCore import Qt
 import numpy as np
 
-from gui import CalibrationWindow, InputParameterTable, ResultTable, Plot, \
-    StandardButton, StandardComboBox, StandardHeadline, StandardProgressBar, \
-    FitRunner, read_xlsx, ui_style
+from ..shared.fit_runner import FitRunner
+from ..shared.plot import Plot
+from .. shared.standard_widgets import StandardButton, StandardComboBox, \
+    StandardHeadline, StandardProgressBar, ui_style
+
+from .input_parameter_table import InputParameterTable
+from .result_table import ResultTable
+from .read_xlsx import read_xlsx
+from ..calibration_window.calibration_window import CalibrationWindow
 
 MODEL_SELECT_OPTIONS = ["Single Exposure", "Exposure-Burial",
     "Exposure-Burial-Exposure", "Exposure-Burial-Exposure-Burial"]
-FIT_QUALITY_OPTIONS = ["low", "medium", "high"]
+FIT_QUALITY_OPTIONS = ["low", "medium", "high", "very high"]
 
 
 class MainWindow(QWidget):
@@ -60,8 +66,8 @@ class MainWindow(QWidget):
         self.result_table = ResultTable()
         self.plot_widget = Plot()
         self.calibration_button = StandardButton("Calibrate")
-        self.quality_select = StandardComboBox("Select fit quality:", ["low",
-            "medium", "high"])
+        self.quality_select = StandardComboBox("Select fit quality:",
+            FIT_QUALITY_OPTIONS)
         self.model_select = StandardComboBox("Select model:",
             MODEL_SELECT_OPTIONS)
         self.load_button = StandardButton("Choose .xlsx data")
@@ -189,7 +195,8 @@ class MainWindow(QWidget):
         """Opens a file dialog to open the data and plots them on the screen."""
 
         if self.fit_runner is not None:
-            QMessageBox.warning(self, "Warning", "A fit is already running.")
+            QMessageBox.warning(self, "Warning",
+                "Wait until the current fit has finished.")
             return
 
         filename, _ = QFileDialog.getOpenFileName(self, "Open .xlsx File",
@@ -202,6 +209,11 @@ class MainWindow(QWidget):
 
     def open_calibration_window(self):
         """Opens the calibration window."""
+
+        if self.fit_runner is not None:
+            QMessageBox.warning(self, "Warning",
+                "Wait until the current fit has finished.")
+            return
 
         if self.calibration_window is None \
             or not self.calibration_window.isVisible():
@@ -338,9 +350,17 @@ class MainWindow(QWidget):
 
         self.fit_runner.start()
 
-    def on_fit_finished(self, result):
+    def on_fit_finished(self):
+        print("a")
+
         self.progress_bar.setVisible(False)
         self.status_label.setVisible(False)
+
+        print("b")
+
+        result = self.fit_runner.result
+
+        print("c")
 
         if not result.success:
             QMessageBox.warning(self, "Warning",
@@ -352,6 +372,8 @@ class MainWindow(QWidget):
         ci = result.confidence_interval
         ts = result.time_since_events
         ts += [(None, None) for _ in range(4 - len(ts))]
+
+        print("d")
 
         # extratct results
         self.t_exposure_1 = bf.get("t_exposure_1")
@@ -372,6 +394,8 @@ class MainWindow(QWidget):
             self.t_since_exposure_2_confidence_intervals = ts[2]
         self.t_since_burial_2, \
             self.t_since_burial_2_confidence_intervals = ts[3]
+
+        print("e")
 
         # set results with confidence intervals
         self.result_table.set_t_exposure_1(self.t_exposure_1)
@@ -407,9 +431,13 @@ class MainWindow(QWidget):
         self.result_table.set_t_since_burial_2_confidence_interval(
             self.t_since_burial_2_confidence_intervals)
 
+        print("f")
+
         # plot fit line
         x_data_fit = np.linspace(np.min(self.x_data),
             np.max(self.x_data), 200)
+
+        print("g")
 
         if self.model_function == self.engine.models.expo:
             y_data_fit = self.model_function(x_data_fit, self.order,
@@ -427,9 +455,15 @@ class MainWindow(QWidget):
                 self.order, self.sigma_phi, self.mu, self.f, self.t_exposure_1,
                 self.t_burial_1, self.t_exposure_2, self.t_burial_2)
 
+        print("h")
+
         self.plot_widget.plot(x_data_fit, y_data_fit)
 
+        print("i")
+
         self.fit_runner = None
+
+        print("j")
 
     def on_fit_failed(self, message):
         self.progress_bar.setVisible(False)

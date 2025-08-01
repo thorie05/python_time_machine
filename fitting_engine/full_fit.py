@@ -38,10 +38,13 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             assumed depending on the only_positive flag.
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
+        n_bootstrap (int, optional): Optional number of bootstrap samples for
+            prior estimation.
         cores (int, optional): Optional number of cores to use.
         quality (str, optional): Optional string determining the quality of the
             fit result. Higher quality needs more run-time. Values can be either
-            'low', 'medium' or 'high'. The standard value is 'medium'.
+            'low', 'medium', 'high' or 'very high'. The standard value is
+            'medium'.
         verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
         status_callback (callable, optional): A callable that receives
@@ -52,6 +55,28 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         FitResult: Dataclass containing all relevant information about a fit.
         See documentation for details.
     """
+
+    # fit quality settings
+    if quality.lower() == "low":
+        draws = 3_000
+        tune = 1_000
+        target_accept = 0.9
+        n_bootstrap = 1_000
+    elif quality.lower() == "medium":
+        draws = 10_000
+        tune = 2_000
+        target_accept = 0.95
+        n_bootstrap = 2_500
+    elif quality.lower() == "high":
+        draws = 20_000
+        tune = 4_000
+        target_accept = 0.99
+        n_bootstrap = 5_000
+    else:
+        draws = 100_000
+        tune = 10_000
+        target_accept = 0.999
+        n_bootstrap = 10_000
 
     # if no free parameter priors given get the estimates with a bootstrap fit
     if not free_params_priors:
@@ -67,7 +92,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             status_callback("Estimating priors with Bootstrap...")
 
         # perform a bootstrap fit to obtain free parameter prior estimates
-        bootstrap_fit_result = bootstrap_fit(2_000, x_data, y_data,
+        bootstrap_fit_result = bootstrap_fit(n_bootstrap, x_data, y_data,
             model_function, known_params, initial_guess, y_err_std=y_err_std,
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, cores=cores, seed=seed)
@@ -84,20 +109,6 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             prior_std = max(param_best_fit - lower, upper - param_best_fit)
             prior_std = min(prior_std, param_best_fit)
             free_params_priors[param_name] = (param_best_fit, prior_std)
-
-    # fit quality settings
-    if quality.lower() == "low":
-        draws = 3_000
-        tune = 1_000
-        target_accept = 0.8
-    elif quality.lower() == "medium":
-        draws = 6_000
-        tune = 2_000
-        target_accept = 0.9
-    else:
-        draws = 20_000
-        tune = 4_000
-        target_accept = 0.99
 
     if status_callback:
         status_callback("Running MCMC Bayesian fit...")

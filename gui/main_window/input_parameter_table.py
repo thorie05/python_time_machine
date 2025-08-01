@@ -3,7 +3,8 @@ from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QLineEdit, QFrame, \
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtCore import Qt
 
-from gui.ui_style import ui_style
+from ..shared.ui_style import ui_style
+
 
 class InputParameterTable(QWidget):
     """Input parameter table widget."""

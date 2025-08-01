@@ -11,8 +11,8 @@ from .fit_result_dataclass import FitResult
 
 def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
     free_params_priors, y_err_std, known_params_err_std=None,
-    only_positive=False, target_accept=0.95, chains=4, cores=4, verbose=False,
-    seed=None):
+    only_positive=False, target_accept=0.95, chains=4,
+    cores=4, verbose=False, seed=None):
     """
     A fitting function that uses the MCMC method for calculating uncertainties.
 
