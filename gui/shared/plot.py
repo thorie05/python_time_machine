@@ -74,6 +74,18 @@ class Plot(FigureCanvas):
         self._configure_axis()
         self.draw()
 
+    def clear_plot(self):
+        self.clear()
+
+        self.x_data_plot = None
+        self.y_data_plot = None
+
+        if self.x_data_scatter is not None:
+            self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
+            self._draw_scatter()
+
+        self.draw()
+
     def _auto_ylim(self, y_data, y_err=None):
         y_data = np.asarray(y_data)
         if y_err is not None:

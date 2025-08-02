@@ -1,6 +1,5 @@
 from PySide6.QtWidgets import QApplication
 import sys
-import os
 
 from gui.main_window.main_window import MainWindow
 from fitting_engine import FittingEngine

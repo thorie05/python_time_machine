@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PySide6.QtCore import Qt
+from functools import partial
 
 from .main_window_logic import MainWindowLogic
 
@@ -24,12 +25,13 @@ class MainWindow(QWidget):
         self.result_table = ResultTable()
         self.plot_widget = Plot()
         self.calibration_button = StandardButton("Calibrate")
-        self.quality_select = StandardComboBox("Select fit quality:",
-            self.logic.fit_quality_options)
+        self.quality_select = StandardComboBox("Select MCMC fit quality:",
+            self.logic.mcmc_quality_options)
         self.model_select = StandardComboBox("Select model:",
             self.logic.model_select_options)
         self.load_button = StandardButton("Choose .xlsx data")
-        self.run_button = StandardButton("Run fit")
+        self.run_mcmc_button = StandardButton("Run MCMC fit")
+        self.run_easy_button = StandardButton("Run least-squares fit")
         # progress bar and label
         self.progress_bar = StandardProgressBar()
         self.status_label = QLabel()
@@ -124,10 +126,24 @@ class MainWindow(QWidget):
         # set default value to medium
         self.quality_select.combo_box.setCurrentIndex(1)
 
-        # run fit button
-        self.run_button.clicked.connect(self.logic.run_fit)
-        self.run_button.setFocusPolicy(Qt.NoFocus)
-        button_column.addWidget(self.run_button)
+        # run mcmc fit button
+        self.run_mcmc_button.clicked.connect(partial(self.logic.run_fit,
+            "mcmc"))
+        self.run_mcmc_button.setFocusPolicy(Qt.NoFocus)
+
+        # run least squares fit button
+        self.run_easy_button.clicked.connect(partial(self.logic.run_fit,
+            "easy"))
+        self.run_easy_button.setFocusPolicy(Qt.NoFocus)
+
+        # layout to place both buttons side-by-side, left-aligned
+        fit_button_row = QHBoxLayout()
+        fit_button_row.setAlignment(Qt.AlignLeft)
+        fit_button_row.addWidget(self.run_mcmc_button)
+        fit_button_row.addWidget(self.run_easy_button)
+
+        # Add the row to the button_column layout
+        button_column.addLayout(fit_button_row)
 
         # loading bar and label in a tight sub-layout
         progress_layout = QVBoxLayout()

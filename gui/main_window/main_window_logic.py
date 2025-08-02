@@ -15,7 +15,7 @@ class MainWindowLogic(QObject):
 
         self.model_select_options = ["Single Exposure", "Exposure-Burial",
             "Exposure-Burial-Exposure", "Exposure-Burial-Exposure-Burial"]
-        self.fit_quality_options = ["low", "medium", "high", "very high"]
+        self.mcmc_quality_options = ["low", "medium", "high", "very high"]
 
         self.engine = engine
         self.fit_runner = None
@@ -88,7 +88,7 @@ class MainWindowLogic(QObject):
             self.ui.calibration_window.raise_()
             self.ui.calibration_window.activateWindow()
 
-    def run_fit(self):
+    def run_fit(self, fit_type):
         if self.fit_runner is not None:
             QMessageBox.warning(self.ui, "Warning", "A fit is already running.")
             return
@@ -97,9 +97,10 @@ class MainWindowLogic(QObject):
             return
 
         self.ui.result_table.clear_table()
+        self.ui.plot_widget.clear_plot()
 
         model_function_select = self.ui.model_select.get_text()
-        fit_quality = self.ui.quality_select.get_text()
+        mcmc_quality = self.ui.quality_select.get_text()
 
         self.order = self.ui.input_parameter_table.get_order()
         self.order_std = self.ui.input_parameter_table.get_order_std()
@@ -122,13 +123,6 @@ class MainWindowLogic(QObject):
                 f"order must lie between {self.engine.bounds.order[0] + 1} "
                 f"and {self.engine.bounds.order[1] + 1}.")
             return
-        if not (self.engine.bounds.order_std[0] <= self.order_std \
-            <= self.engine.bounds.order_std[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"Standard deviation of order must lie between "
-                f"{self.engine.bounds.order_std[0]} and "
-                f"{self.engine.bounds.order_std[1]}.")
-            return
         if not (self.engine.bounds.sigma_phi[0] <= self.sigma_phi \
             <= self.engine.bounds.sigma_phi[1]):
             QMessageBox.warning(self.ui, "Warning",
@@ -137,28 +131,40 @@ class MainWindowLogic(QObject):
                 f"{self.engine.bounds.sigma_phi[0]} and "
                 f"{self.engine.bounds.sigma_phi[1]}.")
             return
-        if not (self.engine.bounds.sigma_phi_std[0] \
-                <= self.sigma_phi_std \
-                <= self.engine.bounds.sigma_phi_std[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"Standard deviation of <span style='text-decoration: "
-                f"overline;'>σφ</span><sub>0</sub> must lie between "
-                f"{self.engine.bounds.sigma_phi_std[0]} and "
-                f"{self.engine.bounds.sigma_phi_std[1]}.")
-            return
         if not (self.engine.bounds.mu[0] <= self.mu \
             <= self.engine.bounds.mu[1]):
             QMessageBox.warning(self.ui, "Warning",
                 f"µ must lie between {self.engine.bounds.mu[0]} and "
                 f"{self.engine.bounds.mu[1]}.")
             return
-        if not (self.engine.bounds.mu_std[0] <= self.mu_std \
-            <= self.engine.bounds.mu_std[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"Standard deviation of µ must lie between "
-                f"{self.engine.bounds.mu_std[0]} and "
-                f"{self.engine.bounds.mu_std[1]}.")
-            return
+
+        if fit_type == "mcmc":
+            if not (self.engine.bounds.order_std[0] <= self.order_std \
+                <= self.engine.bounds.order_std[1]):
+                QMessageBox.warning(self.ui, "Warning",
+                    f"Standard deviation of order must lie between "
+                    f"{self.engine.bounds.order_std[0]} and "
+                    f"{self.engine.bounds.order_std[1]}.")
+                return
+
+            if not (self.engine.bounds.sigma_phi_std[0] \
+                    <= self.sigma_phi_std \
+                    <= self.engine.bounds.sigma_phi_std[1]):
+                QMessageBox.warning(self.ui, "Warning",
+                    f"Standard deviation of <span style='text-decoration: "
+                    f"overline;'>σφ</span><sub>0</sub> must lie between "
+                    f"{self.engine.bounds.sigma_phi_std[0]} and "
+                    f"{self.engine.bounds.sigma_phi_std[1]}.")
+                return
+
+            if not (self.engine.bounds.mu_std[0] <= self.mu_std \
+                <= self.engine.bounds.mu_std[1]):
+                QMessageBox.warning(self.ui, "Warning",
+                    f"Standard deviation of µ must lie between "
+                    f"{self.engine.bounds.mu_std[0]} and "
+                    f"{self.engine.bounds.mu_std[1]}.")
+                return
+
 
         bounds = {"order": self.engine.bounds.order,
             "sigma_phi": self.engine.bounds.sigma_phi,
@@ -176,13 +182,14 @@ class MainWindowLogic(QObject):
                     f"f must lie between {self.engine.bounds.f[0]} and "
                     f"{self.engine.bounds.f[1]}.")
                 return
-            if not (self.engine.bounds.f_std[0] <= self.f_std \
-                <= self.engine.bounds.f_std[1]):
-                QMessageBox.warning(self.ui, "Warning",
-                    f"Standard deviation of f must lie between "
-                    f"{self.engine.bounds.f_std[0]} and "
-                    f"{self.engine.bounds.f_std[1]}.")
-                return
+            if fit_type == "mcmc":
+                if not (self.engine.bounds.f_std[0] <= self.f_std \
+                    <= self.engine.bounds.f_std[1]):
+                    QMessageBox.warning(self.ui, "Warning",
+                        f"Standard deviation of f must lie between "
+                        f"{self.engine.bounds.f_std[0]} and "
+                        f"{self.engine.bounds.f_std[1]}.")
+                    return
 
             known_params["f"] = self.f
             known_params_err_std["f"] = self.f_std
@@ -204,7 +211,8 @@ class MainWindowLogic(QObject):
 
         self.fit_runner = FitRunner(self.engine, self.x_data,
             self.y_data, self.y_err_std, self.model_function,
-            known_params, known_params_err_std, bounds, fit_quality)
+            known_params, bounds, fit_type,
+            known_params_err_std=known_params_err_std, mcmc_quality=mcmc_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
         self.fit_runner.finished.connect(self.on_fit_finished,
@@ -240,7 +248,11 @@ class MainWindowLogic(QObject):
         bf = result.best_fit
         ci = result.confidence_interval
         ts = result.time_since_events
-        ts += [(None, None) for _ in range(4 - len(ts))]
+        if ts is not None:
+            ts += [(None, None) for _ in range(4 - len(ts))]
+        else:
+            ts = [(None, None)] * 4
+        ci = {} if ci is None else ci
 
         print("d")
 

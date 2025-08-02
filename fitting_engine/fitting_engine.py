@@ -1,3 +1,4 @@
+from .get_initial_guess import get_initial_guess
 from .easy_fit import easy_fit
 from .bootstrap_fit import bootstrap_fit
 from .bayesian_fit import bayesian_fit
@@ -47,6 +48,12 @@ class FittingEngine:
         """Initialize the internal calibrator instance."""
         self.calibrator = Calibrator(order, order_std, fit_quality=fit_quality,
             verbose=verbose)
+
+    def get_initial_guess(self, x_data, y_data, model_function, known_params,
+        bounds=None, y_err_std=None, only_positve=True):
+        """Wrapper method for get_initial_guess."""
+        return get_initial_guess(x_data, y_data, model_function, known_params,
+            bounds=bounds, y_err_std=y_err_std, only_positive=only_positve)
 
     def easy_fit(self, x_data, y_data, model_function, known_params,
         initial_guess, y_err_std=None, only_positive=True):
