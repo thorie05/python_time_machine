@@ -50,10 +50,12 @@ class FittingEngine:
             verbose=verbose)
 
     def get_initial_guess(self, x_data, y_data, model_function, known_params,
-        bounds=None, y_err_std=None, only_positve=True):
+        bounds=None, y_err_std=None, only_positve=True, num_restarts=5,
+        workers=-1):
         """Wrapper method for get_initial_guess."""
         return get_initial_guess(x_data, y_data, model_function, known_params,
-            bounds=bounds, y_err_std=y_err_std, only_positive=only_positve)
+            bounds=bounds, y_err_std=y_err_std, only_positive=only_positve,
+            num_restarts=num_restarts, workers=workers)
 
     def easy_fit(self, x_data, y_data, model_function, known_params,
         initial_guess, y_err_std=None, only_positive=True):
@@ -74,7 +76,7 @@ class FittingEngine:
 
     def bayesian_fit(self, draws, tune, x_data, y_data, model_function,
         known_params, free_params_priors, y_err_std,
-        known_params_err_std=None, only_positive=True,
+        known_params_err_std=None, only_positive=True, cores=4,
         target_accept=0.95, seed=None):
         """Wrapper method for bayesian_fit."""
 
@@ -82,7 +84,7 @@ class FittingEngine:
             known_params, free_params_priors, y_err_std,
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, target_accept=target_accept,
-            verbose=self.verbose, seed=seed)
+            cores=cores, verbose=self.verbose, seed=seed)
 
     def full_fit(self, x_data, y_data, y_err_std, model_function, known_params,
         known_params_err_std=None, free_params_priors=None, bounds=None,

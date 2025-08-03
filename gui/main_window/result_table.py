@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QSizePolicy, QFrame
 from PySide6.QtCore import Qt
 
 from ..shared.ui_style import ui_style
+from ..shared.standard_widgets import ClickableLabel
 
 
 class ResultTable(QWidget):
@@ -22,7 +23,7 @@ class ResultTable(QWidget):
 
         for col, header in enumerate(headers):
             header_label = QLabel(header)
-            header_label.setAlignment(Qt.AlignCenter)
+            header_label.setAlignment(Qt.AlignVCenter)
             header_label.setStyleSheet(
                 f"background-color: {ui_style.table.header_background_color};"
                 f"border: {ui_style.table.border_width} solid "
@@ -60,7 +61,6 @@ class ResultTable(QWidget):
                     f"{ui_style.table.border_color};"
                     f"padding: {ui_style.table.cell_padding}px;"
                 )
-                label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
                 label.setTextFormat(Qt.RichText)
                 label.setSizePolicy(QSizePolicy.Expanding,
                     QSizePolicy.Expanding)
@@ -76,7 +76,7 @@ class ResultTable(QWidget):
                     f"{ui_style.table.border_color};"
                     f"padding: {ui_style.table.cell_padding}px;"
                 )
-                label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+                label.setAlignment(Qt.AlignVCenter)
                 label.setTextFormat(Qt.RichText)
                 label.setCursor(Qt.IBeamCursor)
                 label.setTextInteractionFlags(Qt.TextSelectableByMouse)

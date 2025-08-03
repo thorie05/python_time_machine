@@ -1,8 +1,16 @@
 from PySide6.QtWidgets import QPushButton, QSizePolicy, QProgressBar, QWidget, \
     QVBoxLayout, QLabel, QComboBox, QLayout
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal, Qt
 
 from .ui_style import ui_style
+
+
+class ClickableLabel(QLabel):
+    doubleClicked = Signal()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton and self.text().strip() != "":
+            self.doubleClicked.emit()
 
 
 class StandardButton(QPushButton):

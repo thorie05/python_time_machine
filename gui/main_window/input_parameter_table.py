@@ -21,7 +21,10 @@ class InputParameterTable(QWidget):
         headers = ["Input Parameter", "Value", "σ (Standard deviation)"]
         for col, header in enumerate(headers):
             header_label = QLabel(header)
-            header_label.setAlignment(Qt.AlignCenter)
+            if col == 0:
+                header_label.setAlignment(Qt.AlignLeft)
+            else:
+                header_label.setAlignment(Qt.AlignRight)
             header_label.setStyleSheet(
                 f"background-color: {ui_style.table.header_background_color};"
                 f"border: {ui_style.table.border_width} solid "

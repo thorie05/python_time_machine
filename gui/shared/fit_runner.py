@@ -55,7 +55,8 @@ class FitRunner(QObject):
                 self.status.emit("Finding initial guess...")
                 initial_guess = self.engine.get_initial_guess(self.x_data,
                     self.y_data, self.model_function, self.known_params,
-                    bounds=self.bounds, y_err_std=self.y_err_std)
+                    bounds=self.bounds, y_err_std=self.y_err_std,
+                    num_restarts=1)
                 self.status.emit("Running least-squares fit...")
                 self.result = self.engine.easy_fit(self.x_data, self.y_data,
                     self.model_function, self.known_params, initial_guess,

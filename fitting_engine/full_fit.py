@@ -62,21 +62,25 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         tune = 1_000
         target_accept = 0.9
         n_bootstrap = 1_000
+        num_restarts = 1
     elif quality.lower() == "medium":
         draws = 10_000
         tune = 2_000
         target_accept = 0.95
         n_bootstrap = 2_500
+        num_restarts = 5
     elif quality.lower() == "high":
         draws = 20_000
         tune = 4_000
         target_accept = 0.99
         n_bootstrap = 5_000
+        num_restarts = 10
     else:
         draws = 100_000
         tune = 10_000
         target_accept = 0.999
         n_bootstrap = 10_000
+        num_restarts = 100
 
     # if no free parameter priors given get the estimates with a bootstrap fit
     if not free_params_priors:
@@ -86,7 +90,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         # get the initial guess for the bootstrap fit
         initial_guess = get_initial_guess(x_data, y_data, model_function,
             known_params, bounds=bounds, y_err_std=y_err_std,
-            only_positive=only_positive)
+            only_positive=only_positive, num_restarts=num_restarts)
 
         if status_callback:
             status_callback("Estimating priors with Bootstrap...")
@@ -96,6 +100,10 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             model_function, known_params, initial_guess, y_err_std=y_err_std,
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, cores=cores, seed=seed)
+
+        # validate bootstrap success
+        if not bootstrap_fit_result.success:
+            raise RuntimeError("Bootstrap run was not successful.")
 
         free_params_priors = {}
         for param_name, param_best_fit in bootstrap_fit_result.best_fit.items():
