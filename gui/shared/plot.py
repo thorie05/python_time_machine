@@ -20,7 +20,7 @@ class Plot(FigureCanvas):
         self.y_data_plot = None
 
     def _configure_axis(self):
-        self.ax.set_xlabel("Depth [mm]")
+        self.ax.set_xlabel("Depth")
         self.ax.set_ylabel("Luminescence Lx/Tx")
         self.ax.set_ylim(bottom=0)
 

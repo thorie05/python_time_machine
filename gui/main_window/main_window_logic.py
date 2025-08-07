@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt, QObject
 import numpy as np
 
 from ..shared.fit_runner import FitRunner
+from ..shared.bound_checker_with_message_box import BoundCheckerWithMessageBox
 
 from .read_xlsx import read_xlsx
 from ..calibration_window.calibration_window import CalibrationWindow
@@ -13,12 +14,24 @@ class MainWindowLogic(QObject):
         super().__init__()
         self.ui = main_window
 
-        self.model_select_options = ["Single Exposure", "Exposure-Burial",
-            "Exposure-Burial-Exposure", "Exposure-Burial-Exposure-Burial"]
-        self.mcmc_quality_options = ["low", "medium", "high", "very high"]
+        self.model_select_options = {
+            "Single Exposure": engine.models.expo,
+            "Exposure-Burial":engine.models.expo_buri,
+            "Exposure-Burial-Exposure": engine.models.expo_buri_expo,
+            "Exposure-Burial-Exposure-Burial":
+                engine.models.expo_buri_expo_buri,
+            }
+        self.fit_quality_options = {
+            "low": engine.fit_quality_settings.low,
+            "medium": engine.fit_quality_settings.medium,
+            "high": engine.fit_quality_settings.high,
+            "very high": engine.fit_quality_settings.very_high
+        }
 
         self.engine = engine
         self.fit_runner = None
+
+        self.bounds_checker = BoundCheckerWithMessageBox(engine, main_window)
 
         # input data
         self.x_data = None
@@ -35,24 +48,9 @@ class MainWindowLogic(QObject):
         self.f = None
         self.f_std = None
 
-        # fit results
         self.model_function = None
-        self.t_exposure_1 = None
-        self.t_exposure_1_confidence_interval = None
-        self.t_burial_1 = None
-        self.t_burial_1_confidence_interval = None
-        self.t_exposure_2 = None
-        self.t_exposure_2_confidence_interval = None
-        self.t_burial_2 = None
-        self.t_since_burial_2_confidence_interval = None
-        self.t_since_exposure_1 = None
-        self.t_since_exposure_1_confidence_interval = None
-        self.t_since_burial_1 = None
-        self.t_since_burial_1_confidence_interval = None
-        self.t_since_exposure_2 = None
-        self.t_since_exposure_2_confidence_interval = None
-        self.t_since_burial_2 = None
-        self.t_since_burial_2_confidence_interval = None
+
+        self.fit_result = None
 
 
     def load_xlsx(self):
@@ -99,8 +97,10 @@ class MainWindowLogic(QObject):
         self.ui.result_table.clear_table()
         self.ui.plot_widget.clear_plot()
 
+        fit_quality_select = self.ui.quality_select.get_text()
+        fit_quality = self.fit_quality_options[fit_quality_select]
         model_function_select = self.ui.model_select.get_text()
-        mcmc_quality = self.ui.quality_select.get_text()
+        self.model_function = self.model_select_options[model_function_select]
 
         self.order = self.ui.input_parameter_table.get_order()
         self.order_std = self.ui.input_parameter_table.get_order_std()
@@ -116,103 +116,47 @@ class MainWindowLogic(QObject):
             "mu": self.mu}
         known_params_err_std = {"order": self.order_std,
             "sigma_phi": self.sigma_phi_std, "mu": self.mu_std}
-
-        if not (self.engine.bounds.order[0] <= self.order \
-            <= self.engine.bounds.order[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"order must lie between {self.engine.bounds.order[0] + 1} "
-                f"and {self.engine.bounds.order[1] + 1}.")
-            return
-        if not (self.engine.bounds.sigma_phi[0] <= self.sigma_phi \
-            <= self.engine.bounds.sigma_phi[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"<span style='text-decoration: overline;'>σφ</span>"
-                f"<sub>0</sub> must lie between "
-                f"{self.engine.bounds.sigma_phi[0]} and "
-                f"{self.engine.bounds.sigma_phi[1]}.")
-            return
-        if not (self.engine.bounds.mu[0] <= self.mu \
-            <= self.engine.bounds.mu[1]):
-            QMessageBox.warning(self.ui, "Warning",
-                f"µ must lie between {self.engine.bounds.mu[0]} and "
-                f"{self.engine.bounds.mu[1]}.")
-            return
-
-        if fit_type == "mcmc":
-            if not (self.engine.bounds.order_std[0] <= self.order_std \
-                <= self.engine.bounds.order_std[1]):
-                QMessageBox.warning(self.ui, "Warning",
-                    f"Standard deviation of order must lie between "
-                    f"{self.engine.bounds.order_std[0]} and "
-                    f"{self.engine.bounds.order_std[1]}.")
-                return
-
-            if not (self.engine.bounds.sigma_phi_std[0] \
-                    <= self.sigma_phi_std \
-                    <= self.engine.bounds.sigma_phi_std[1]):
-                QMessageBox.warning(self.ui, "Warning",
-                    f"Standard deviation of <span style='text-decoration: "
-                    f"overline;'>σφ</span><sub>0</sub> must lie between "
-                    f"{self.engine.bounds.sigma_phi_std[0]} and "
-                    f"{self.engine.bounds.sigma_phi_std[1]}.")
-                return
-
-            if not (self.engine.bounds.mu_std[0] <= self.mu_std \
-                <= self.engine.bounds.mu_std[1]):
-                QMessageBox.warning(self.ui, "Warning",
-                    f"Standard deviation of µ must lie between "
-                    f"{self.engine.bounds.mu_std[0]} and "
-                    f"{self.engine.bounds.mu_std[1]}.")
-                return
-
-
         bounds = {"order": self.engine.bounds.order,
             "sigma_phi": self.engine.bounds.sigma_phi,
             "mu": self.engine.bounds.mu,
             "t_exposure_1": self.engine.bounds.t_exposure_1}
 
-        # select model function
-        if model_function_select == self.model_select_options[0]:
-            self.model_function = self.engine.models.expo
+        if not self.bounds_checker.check_order(self.order):
+            return
+        if not self.bounds_checker.check_sigma_phi(self.sigma_phi):
+            return
+        if not self.bounds_checker.check_mu(self.mu):
+            return
 
-        else:
-            if not (self.engine.bounds.f[0] <= self.f \
-                <= self.engine.bounds.f[1]):
-                QMessageBox.warning(self.ui, "Warning",
-                    f"f must lie between {self.engine.bounds.f[0]} and "
-                    f"{self.engine.bounds.f[1]}.")
+        if fit_type == "mcmc":
+            if not self.bounds_checker.check_order_std(self.order_std):
+                return
+            if not self.bounds_checker.check_sigma_phi_std(self.sigma_phi_std):
+                return
+            if not self.bounds_checker.check_mu_std(self.mu_std):
+                return
+
+        if self.model_function != self.engine.models.expo:
+            if not self.bounds_checker.check_f(self.f):
                 return
             if fit_type == "mcmc":
-                if not (self.engine.bounds.f_std[0] <= self.f_std \
-                    <= self.engine.bounds.f_std[1]):
-                    QMessageBox.warning(self.ui, "Warning",
-                        f"Standard deviation of f must lie between "
-                        f"{self.engine.bounds.f_std[0]} and "
-                        f"{self.engine.bounds.f_std[1]}.")
+                if not self.bounds_checker.check_f_std(self.f_std):
                     return
 
             known_params["f"] = self.f
             known_params_err_std["f"] = self.f_std
             bounds["t_burial_1"] = self.engine.bounds.t_burial_1
 
-            if model_function_select == self.model_select_options[1]:
-                self.model_function = self.engine.models.expo_buri
-            else:
+            if self.model_function != self.engine.models.expo_buri:
                 bounds["t_exposure_2"] = self.engine.bounds.t_exposure_2
 
-                if model_function_select == self.model_select_options[2]:
-                    self.model_function \
-                        = self.engine.models.expo_buri_expo
-                else:
+                if self.model_function != self.engine.models.expo_buri_expo:
                     bounds["t_burial_2"] = self.engine.bounds.t_burial_2
 
-                    self.model_function \
-                        = self.engine.models.expo_buri_expo_buri
-
         self.fit_runner = FitRunner(self.engine, self.x_data,
-            self.y_data, self.y_err_std, self.model_function,
-            known_params, bounds, fit_type,
-            known_params_err_std=known_params_err_std, mcmc_quality=mcmc_quality)
+            self.y_data, self.y_err_std, self.model_function, known_params,
+            bounds, fit_type, known_params_err_std=known_params_err_std,
+            fit_quality=fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
         self.fit_runner.finished.connect(self.on_fit_finished,
@@ -228,144 +172,56 @@ class MainWindowLogic(QObject):
         self.fit_runner.start()
 
     def on_fit_finished(self):
-        print("a")
-
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
 
-        print("b")
+        self.fit_result = self.fit_runner.result
 
-        result = self.fit_runner.result
-
-        print("c")
-
-        if not result.success:
+        if not self.fit_result.success:
             QMessageBox.warning(self.ui, "Warning",
                 "There have been problems with the fit. The results may be "
                 "faulty. Try increasing the fit quality, or improving the "
                 "accuracy of the known parameters.")
+        print(self.fit_result)
 
-        bf = result.best_fit
-        ci = result.confidence_interval
-        ts = result.time_since_events
-        if ts is not None:
-            ts += [(None, None) for _ in range(4 - len(ts))]
-        else:
-            ts = [(None, None)] * 4
-        ci = {} if ci is None else ci
 
-        print("d")
+        for param_name, value in self.fit_result.best_fit.items():
+            self.ui.result_table.set_result(param_name, value)
 
-        # extratct results
-        self.t_exposure_1 = bf.get("t_exposure_1")
-        self.t_exposure_1_confidence_interval = ci.get("t_exposure_1")
-        self.t_burial_1 = bf.get("t_burial_1")
-        self.t_burial_1_confidence_interval = ci.get("t_burial_1")
-        self.t_exposure_2 = bf.get("t_exposure_2")
-        self.t_exposure_2_confidence_interval = ci.get("t_exposure_2")
-        self.t_burial_2 = bf.get("t_burial_2")
-        self.t_burial_2_confidence_interval = ci.get("t_burial_2")
+        if self.fit_result.confidence_interval is not None:
+            for param_name, interval \
+                in self.fit_result.confidence_interval.items():
+                self.ui.result_table.set_confidence_interval(
+                    param_name, interval)
 
-        # extract time since results
-        self.t_since_exposure_1, \
-            self.t_since_exposure_1_confidence_intervals = ts[0]
-        self.t_since_burial_1, \
-            self.t_since_burial_1_confidence_intervals = ts[1]
-        self.t_since_exposure_2, \
-            self.t_since_exposure_2_confidence_intervals = ts[2]
-        self.t_since_burial_2, \
-            self.t_since_burial_2_confidence_intervals = ts[3]
+        if self.fit_result.samples is not None:
+            event_ages, event_ages_samples = self.engine.get_event_ages(
+                list(self.fit_result.best_fit.keys()), self.fit_result.samples)
 
-        print("e")
+            for param_name, (value, interval) in event_ages.items():
+                self.ui.result_table.set_result(param_name, value)
+                self.ui.result_table.set_confidence_interval(param_name,
+                    interval)
 
-        print(self.t_exposure_1, self.t_exposure_1_confidence_interval)
-        print(self.t_burial_1, self.t_burial_1_confidence_interval)
-        print(self.t_exposure_2, self.t_exposure_2_confidence_interval)
-        print(self.t_burial_2, self.t_burial_2_confidence_interval)
+            all_samples = self.fit_result.samples | event_ages_samples
+            for param_name, samples in all_samples.items():
+                split_param_name = param_name.split("_")
+                histo_title = "$" + split_param_name[0] + r"_{\mathrm{" \
+                    + split_param_name[1] + "}, " \
+                    + split_param_name[2] + "}$"
+                self.ui.result_table.set_posterior_samples(param_name, samples,
+                    histo_title)
 
-        # set results with confidence intervals
-        print("e1")
-        self.ui.result_table.set_t_exposure_1(self.t_exposure_1)
-        print("e2")
-        self.ui.result_table.set_t_exposure_1_confidence_interval(
-            self.t_exposure_1_confidence_interval)
-
-        print("e3")
-        self.ui.result_table.set_t_burial_1(self.t_burial_1)
-        print("e4")
-        self.ui.result_table.set_t_burial_1_confidence_interval(
-            self.t_burial_1_confidence_interval)
-
-        print("e5")
-        self.ui.result_table.set_t_exposure_2(self.t_exposure_2)
-        print("e6")
-        self.ui.result_table.set_t_exposure_2_confidence_interval(
-            self.t_exposure_2_confidence_interval)
-
-        print("e7")
-        self.ui.result_table.set_t_burial_2(self.t_burial_2)
-        print("e8")
-        self.ui.result_table.set_t_burial_2_confidence_interval(
-            self.t_burial_2_confidence_interval)
-
-        # set time since results with confidence intervals
-        print("e9")
-        self.ui.result_table.set_t_since_exposure_1(self.t_since_exposure_1)
-        print("e10")
-        self.ui.result_table.set_t_since_exposure_1_confidence_interval(
-            self.t_since_exposure_1_confidence_intervals)
-
-        print("e11")
-        self.ui.result_table.set_t_since_burial_1(self.t_since_burial_1)
-        print("e12")
-        self.ui.result_table.set_t_since_burial_1_confidence_interval(
-            self.t_since_burial_1_confidence_intervals)
-
-        print("e13")
-        self.ui.result_table.set_t_since_exposure_2(self.t_since_exposure_2)
-        print("e14")
-        self.ui.result_table.set_t_since_exposure_2_confidence_interval(
-            self.t_since_exposure_2_confidence_intervals)
-
-        print("e15")
-        self.ui.result_table.set_t_since_burial_2(self.t_since_burial_2)
-        print("e16")
-        self.ui.result_table.set_t_since_burial_2_confidence_interval(
-            self.t_since_burial_2_confidence_intervals)
-
-        print("f")
-
-        # plot fit line
-        x_data_fit = np.linspace(np.min(self.x_data),
-            np.max(self.x_data), 200)
-
-        print("g")
-
-        if self.model_function == self.engine.models.expo:
-            y_data_fit = self.model_function(x_data_fit, self.order,
-                self.sigma_phi, self.mu, self.t_exposure_1)
-        elif self.model_function == self.engine.models.expo_buri:
-            y_data_fit = self.model_function(x_data_fit, self.order,
-                self.sigma_phi, self.mu, self.f, self.t_exposure_1,
-                self.t_burial_1)
-        elif self.model_function == self.engine.models.expo_buri_expo:
-            y_data_fit = self.model_function(x_data_fit, self.order,
-                self.sigma_phi, self.mu, self.f, self.t_exposure_1,
-                self.t_burial_1, self.t_exposure_2)
-        else:
-            y_data_fit = self.engine.models.expo_buri_expo_buri(x_data_fit,
-                self.order, self.sigma_phi, self.mu, self.f, self.t_exposure_1,
-                self.t_burial_1, self.t_exposure_2, self.t_burial_2)
-
-        print("h")
-
+        # construct known params
+        known_params = {"order": self.order, "sigma_phi": self.sigma_phi,
+            "mu": self.mu}
+        if self.model_function != self.engine.models.expo:
+            known_params["f"] = self.f
+        # plot fitted curve
+        x_data_fit = np.linspace(np.min(self.x_data), np.max(self.x_data), 200)
+        y_data_fit = self.model_function(x_data_fit, **known_params,
+            **self.fit_result.best_fit)
         self.ui.plot_widget.plot(x_data_fit, y_data_fit)
-
-        print("i")
-
-        self.fit_runner = None
-
-        print("j")
 
     def on_fit_failed(self, message):
         self.ui.progress_bar.setVisible(False)

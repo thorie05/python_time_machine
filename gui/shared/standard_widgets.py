@@ -5,7 +5,7 @@ from PySide6.QtCore import Signal, Qt
 from .ui_style import ui_style
 
 
-class ClickableLabel(QLabel):
+class ClickableStandardLabel(QLabel):
     doubleClicked = Signal()
 
     def mouseDoubleClickEvent(self, event):

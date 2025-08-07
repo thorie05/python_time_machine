@@ -47,7 +47,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
-        See documentation for details.
+            See documentation for details.
     """
 
     rng = np.random.default_rng(seed)

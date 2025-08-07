@@ -29,7 +29,7 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
-        See documentation for details.
+            See documentation for details.
     """
 
     # dynamically gets all parameter names of model function discarding x and

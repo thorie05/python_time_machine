@@ -54,6 +54,7 @@ class StandardProgressBar:
 class Plot:
     scatter_color: str = "#1f77b4"
     plot_color: str = "#ff7f0e"
+    histogram_color: str = "#1f77b4"
 
 @dataclass
 class UIStyle:
@@ -66,5 +67,6 @@ class UIStyle:
     standard_progress_bar: StandardProgressBar \
         = field(default_factory=StandardProgressBar)
     plot: Plot = field(default_factory=Plot)
+
 
 ui_style = UIStyle()

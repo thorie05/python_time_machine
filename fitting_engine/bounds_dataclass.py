@@ -21,3 +21,6 @@ class Bounds:
     t_burial_1 : Tuple[float, float] = (0.0, 1_000_000.0)
     t_exposure_2 : Tuple[float, float] = (0.0, 1_000_000.0)
     t_burial_2 : Tuple[float, float] = (0.0, 1_000_000.0)
+
+
+bounds = Bounds()

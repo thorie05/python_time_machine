@@ -1,12 +1,13 @@
 from .bayesian_fit import bayesian_fit
 from .bootstrap_fit import bootstrap_fit
 from .get_initial_guess import get_initial_guess
+from .fit_quality_settings_dataclass import fit_quality_settings
 
 
 def full_fit(x_data, y_data, y_err_std, model_function, known_params,
     known_params_err_std=None, free_params_priors=None, bounds=None,
-    only_positive=False, cores=4, quality="medium", verbose=False, seed=None,
-    status_callback=None):
+    fit_quality=fit_quality_settings.medium, only_positive=False, cores=4,
+    verbose=False, seed=None, status_callback=None):
     """Full fit function that combines bootstrap and bayesian fit.
     
     A wrapper function for the bayesian fit, that estimates free parameter
@@ -36,15 +37,12 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             guess for the bootstrap fit when free_params_priors is not provided.
             If no bounds are given, bounds from -1e6 to 1e6 or from 0 to 1e6 are
             assumed depending on the only_positive flag.
+        fit_quality (Low, Medium, High, VeryHigh, optional): Optional dataclass
+            determining the quality of the fit result. See FitQualitySettings
+            for details.
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
-        n_bootstrap (int, optional): Optional number of bootstrap samples for
-            prior estimation.
         cores (int, optional): Optional number of cores to use.
-        quality (str, optional): Optional string determining the quality of the
-            fit result. Higher quality needs more run-time. Values can be either
-            'low', 'medium', 'high' or 'very high'. The standard value is
-            'medium'.
         verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
         status_callback (callable, optional): A callable that receives
@@ -53,34 +51,15 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
-        See documentation for details.
+            See documentation for details.
     """
 
-    # fit quality settings
-    if quality.lower() == "low":
-        draws = 3_000
-        tune = 1_000
-        target_accept = 0.9
-        n_bootstrap = 1_000
-        num_restarts = 1
-    elif quality.lower() == "medium":
-        draws = 10_000
-        tune = 2_000
-        target_accept = 0.95
-        n_bootstrap = 2_500
-        num_restarts = 5
-    elif quality.lower() == "high":
-        draws = 20_000
-        tune = 4_000
-        target_accept = 0.99
-        n_bootstrap = 5_000
-        num_restarts = 10
-    else:
-        draws = 100_000
-        tune = 10_000
-        target_accept = 0.999
-        n_bootstrap = 10_000
-        num_restarts = 100
+    # extract variables from the fit quality dataclass
+    num_restarts = fit_quality.num_restarts
+    n_bootstrap = fit_quality.n_bootstrap
+    draws = fit_quality.draws
+    tune = fit_quality.tune
+    target_accept = fit_quality.target_accept
 
     # if no free parameter priors given get the estimates with a bootstrap fit
     if not free_params_priors:
@@ -88,9 +67,11 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             status_callback("Finding initial guess...")
 
         # get the initial guess for the bootstrap fit
+        workers = cores if cores else -1
         initial_guess = get_initial_guess(x_data, y_data, model_function,
             known_params, bounds=bounds, y_err_std=y_err_std,
-            only_positive=only_positive, num_restarts=num_restarts)
+            only_positive=only_positive, num_restarts=num_restarts,
+            workers=workers)
 
         if status_callback:
             status_callback("Estimating priors with Bootstrap...")

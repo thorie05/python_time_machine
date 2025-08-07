@@ -25,10 +25,10 @@ class MainWindow(QWidget):
         self.result_table = ResultTable()
         self.plot_widget = Plot()
         self.calibration_button = StandardButton("Calibrate")
-        self.quality_select = StandardComboBox("Select MCMC fit quality:",
-            self.logic.mcmc_quality_options)
+        self.quality_select = StandardComboBox("Select fit quality:",
+            list(self.logic.fit_quality_options.keys()))
         self.model_select = StandardComboBox("Select model:",
-            self.logic.model_select_options)
+            list(self.logic.model_select_options.keys()))
         self.load_button = StandardButton("Choose .xlsx data")
         self.run_mcmc_button = StandardButton("Run MCMC fit")
         self.run_easy_button = StandardButton("Run least-squares fit")

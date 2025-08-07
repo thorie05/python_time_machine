@@ -8,8 +8,7 @@ class FitRunner(QObject):
     failed   = Signal(str)
 
     def __init__(self, engine, x_data, y_data, y_err_std, model_function,
-        known_params, bounds, fit_type, known_params_err_std=None,
-        mcmc_quality=None):
+        known_params, bounds, fit_type, fit_quality, known_params_err_std=None):
         super().__init__()
         self.engine = engine
         self.x_data = x_data
@@ -20,7 +19,7 @@ class FitRunner(QObject):
         self.bounds  = bounds
         self.fit_type = fit_type
         self.known_params_err_std = known_params_err_std
-        self.mcmc_quality = mcmc_quality
+        self.fit_quality = fit_quality
         self.result = None
 
         # set up thread
@@ -49,14 +48,17 @@ class FitRunner(QObject):
                 self.result = self.engine.full_fit(self.x_data, self.y_data,
                     self.y_err_std, self.model_function, self.known_params,
                     known_params_err_std=self.known_params_err_std,
-                    bounds=self.bounds, quality=self.mcmc_quality, cores=1,
-                    status_callback=self.status.emit)
+                    bounds=self.bounds, fit_quality=self.fit_quality, cores=1,
+                    only_positive=True, status_callback=self.status.emit)
             else:
+                # get initial guess
                 self.status.emit("Finding initial guess...")
                 initial_guess = self.engine.get_initial_guess(self.x_data,
                     self.y_data, self.model_function, self.known_params,
                     bounds=self.bounds, y_err_std=self.y_err_std,
-                    num_restarts=1)
+                    only_positive=True,
+                    num_restarts=self.fit_quality.num_restarts)
+                # run least squares
                 self.status.emit("Running least-squares fit...")
                 self.result = self.engine.easy_fit(self.x_data, self.y_data,
                     self.model_function, self.known_params, initial_guess,

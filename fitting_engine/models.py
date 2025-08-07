@@ -4,7 +4,9 @@ import numpy as np
 # For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_2 = 10 means:
 # Starting from full saturation, followed by 1000 time units of exposure,
 # followed by 100 time units of burial, followed by 10 time units of exposure.
-# Thus the total age since full saturation is 1110 time units.
+# The elapsed time since an event, e.g. the event age can be calculated from the
+# posterior samples obtianed through the bayesian_fit function. This is
+# implemented in get_event_ages.
 
 # The order parameter is subtacted by 1, meaning an order of 0.0 in the code is
 # equivalent to the first-order model or an order of 1.2 in the code is
@@ -26,6 +28,9 @@ def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
         sigma_phi (float): Sigma-Phi value, detrapping rate at the surface.
         mu (float): Mu value, light attenuation coefficient in the rock.
         t_exposure_1 (float): Exposure time of the rock surface.
+        math (module, optional): Optional variable controling the math used
+            math module, with numpy being the default value. This is convenient
+            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -55,6 +60,9 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
             assumend as a constant.
         t_exposure_1 (float): Exposure time of the rock surface.
         t_burial_1 (float): Burial time of the rock surface.
+        math (module, optional): Optional variable controling the math used
+            math module, with numpy being the default value. This is convenient
+            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -83,6 +91,9 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
         t_exposure_1 (float): First exposure time of the rock surface.
         t_burial_1 (float): Burial time of the rock surface.
         t_exposure_2 (float): Second exposure time of the rock surface.
+        math (module, optional): Optional variable controling the math used
+            math module, with numpy being the default value. This is convenient
+            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -116,6 +127,9 @@ def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
             assumend as a constant.
         t_exposure_1 (float): Exposure time of the rock surface.
         t_burial_1 (float): Burial time of the rock surface.
+        math (module, optional): Optional variable controling the math used
+            math module, with numpy being the default value. This is convenient
+            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at

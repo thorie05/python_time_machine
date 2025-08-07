@@ -1,8 +1,10 @@
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QSizePolicy, QFrame
 from PySide6.QtCore import Qt
+from functools import partial
 
 from ..shared.ui_style import ui_style
-from ..shared.standard_widgets import ClickableLabel
+from ..shared.standard_widgets import ClickableStandardLabel
+from ..shared.histogram_window import HistogramWindow
 
 
 class ResultTable(QWidget):
@@ -18,9 +20,20 @@ class ResultTable(QWidget):
         self.labels = {}
         self.round_to_digits = 2
 
-        headers = ["Parameter", "Result", "95% Confidence Range", "Time since",
-            "Result", "95% Confidence Range"]
+        self.result_cell_mapping = {
+            "t_exposure_1": (1, 1), "t_burial_1": (1, 2),
+            "t_exposure_2": (1, 3), "t_burial_2": (1, 4),
+            "age_exposure_1": (4, 1), "age_burial_1": (4, 2),
+            "age_exposure_2": (4, 3), "age_burial_2": (4, 4)
+        }
+        self.confidence_interval_cell_mapping = {
+            "t_exposure_1": (2, 1), "t_burial_1": (2, 2),
+            "t_exposure_2": (2, 3), "t_burial_2": (2, 4),
+            "age_exposure_1": (5, 1), "age_burial_1": (5, 2),
+            "age_exposure_2": (5, 3), "age_burial_2": (5, 4)}
 
+        headers = ["Parameter", "Result", "95% Confidence Range", "Event",
+            "Age (BP)", "95% Confidence Range"]
         for col, header in enumerate(headers):
             header_label = QLabel(header)
             header_label.setAlignment(Qt.AlignVCenter)
@@ -69,7 +82,8 @@ class ResultTable(QWidget):
         # empty label placeholders
         for col in [1, 2, 4, 5]:
             for row in range(1, 5):
-                label = QLabel("")
+                label = ClickableStandardLabel("") if col in [1, 4] \
+                    else QLabel("")
                 label.setStyleSheet(
                     f"background-color: {ui_style.table.cell_background_color};"
                     f"border: {ui_style.table.border_width}px solid "
@@ -107,70 +121,54 @@ class ResultTable(QWidget):
 
     def _update_label(self, col, row, value):
         label = self.labels.get((col, row))
-        if label:
-            label.setText("" if value is None \
-                else f"{round(value, self.round_to_digits)}")
+        label_text = ""
+        if value is not None:
+            label_text = f"{round(value, self.round_to_digits)}"
+        label.setText(label_text)
 
     def _update_conf_label(self, col, row, interval):
-        label = self.labels.get((col, row))
-        if label:
-            if interval is None or len(interval) != 2:
+        label = self.labels[(col, row)]
+        if interval is None:
+            label.setText("")
+        else:
+            lower, upper = interval
+            if lower is None or upper is None:
                 label.setText("")
             else:
-                lower, upper = interval
-                if lower is None or upper is None:
-                    label.setText("")
-                else:
-                    label.setText(f"{round(lower, self.round_to_digits)} - "
-                        f"{round(upper, self.round_to_digits)}")
+                label.setText(f"{round(lower, self.round_to_digits)} - "
+                    f"{round(upper, self.round_to_digits)}")
 
-    def set_t_exposure_1(self, value):
-        self._update_label(1, 1, value)
+    def set_result(self, param_name, value):
+        print(param_name)
+        col, row = self.result_cell_mapping[param_name]
+        print(col, row)
+        self._update_label(col, row, value)
 
-    def set_t_exposure_1_confidence_interval(self, interval):
-        self._update_conf_label(2, 1, interval)
+    def set_confidence_interval(self, param_name, interval):
+        col, row = self.confidence_interval_cell_mapping[param_name]
+        self._update_conf_label(col, row, interval)
 
-    def set_t_burial_1(self, value):
-        self._update_label(1, 2, value)
+    def set_posterior_samples(self, param_name, samples, hist_title):
+        col, row = self.result_cell_mapping[param_name]
+        self._connect_labels((col, row), samples, hist_title)
 
-    def set_t_burial_1_confidence_interval(self, interval):
-        self._update_conf_label(2, 2, interval)
+    def _connect_labels(self, pos, samples, param_name):
+        # try to first disconnect the previous connection
+        try:
+            self.labels[pos].doubleClicked.disconnect()
+        except TypeError:
+            pass  # no existing connection
 
-    def set_t_exposure_2(self, value):
-        self._update_label(1, 3, value)
+        if samples is None:
+            return
 
-    def set_t_exposure_2_confidence_interval(self, interval):
-        self._update_conf_label(2, 3, interval)
+        self.labels[pos].doubleClicked.connect(partial(self.show_histogram,
+            samples, param_name))
 
-    def set_t_burial_2(self, value):
-        self._update_label(1, 4, value)
 
-    def set_t_burial_2_confidence_interval(self, interval):
-        self._update_conf_label(2, 4, interval)
-
-    def set_t_since_exposure_1(self, value):
-        self._update_label(4, 1, value)
-
-    def set_t_since_exposure_1_confidence_interval(self, interval):
-        self._update_conf_label(5, 1, interval)
-
-    def set_t_since_burial_1(self, value):
-        self._update_label(4, 2, value)
-
-    def set_t_since_burial_1_confidence_interval(self, interval):
-        self._update_conf_label(5, 2, interval)
-
-    def set_t_since_exposure_2(self, value):
-        self._update_label(4, 3, value)
-
-    def set_t_since_exposure_2_confidence_interval(self, interval):
-        self._update_conf_label(5, 3, interval)
-
-    def set_t_since_burial_2(self, value):
-        self._update_label(4, 4, value)
-
-    def set_t_since_burial_2_confidence_interval(self, interval):
-        self._update_conf_label(5, 4, interval)
+    def show_histogram(self, samples, param_name):
+        self.histogram_window = HistogramWindow(samples, param_name)
+        self.histogram_window.show()
 
     def clear_table(self):
         """Clears all result cells in the table."""
