@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def get_event_ages(param_names, posterior_samples):
     """A function that calculates the total elapsed times since events.
 
@@ -28,7 +29,7 @@ def get_event_ages(param_names, posterior_samples):
 
     cumulative_sum = np.zeros(posterior_samples[param_names[0]].shape)
 
-    for param_name in param_names:
+    for param_name in reversed(param_names):
         # cumulatively add the timespans belonging together from each sample
         cumulative_sum += posterior_samples[param_name]
         median = np.median(cumulative_sum)
@@ -37,6 +38,6 @@ def get_event_ages(param_names, posterior_samples):
         new_param_name = "age_" + param_name[2:]
         event_ages[new_param_name] \
             = (float(median), (float(lower), float(upper)))
-        event_ages_posterior_samples[new_param_name] = cumulative_sum
+        event_ages_posterior_samples[new_param_name] = cumulative_sum.copy()
 
     return (event_ages, event_ages_posterior_samples)

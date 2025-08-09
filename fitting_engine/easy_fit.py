@@ -1,10 +1,10 @@
 import numpy as np
 from scipy.optimize import least_squares
 from inspect import signature
-from .fit_result_dataclass import FitResult
+from .fit_result import FitResult
 
 def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
-             y_err_std=None, only_positive=False):
+    y_err_std=None, only_positive=False):
     """A fast least square fitting function without error estimation.
 
     A function that takes datapoints and a mathematical model function to

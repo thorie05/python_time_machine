@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import truncnorm
 from joblib import Parallel, delayed
 from .easy_fit import easy_fit
-from .fit_result_dataclass import FitResult
+from .fit_result import FitResult
 
 
 def bootstrap_fit(n, x_data, y_data, model_function, known_params,

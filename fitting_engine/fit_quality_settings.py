@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+
 @dataclass(frozen=True)
 class Low:
     draws = 3_000

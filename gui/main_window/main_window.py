@@ -5,8 +5,8 @@ from functools import partial
 from .main_window_logic import MainWindowLogic
 
 from ..shared.plot import Plot
-from .. shared.standard_widgets import StandardButton, StandardComboBox, \
-    StandardHeadline, StandardProgressBar, ui_style
+from .. shared.standard_widgets import Button, ComboBox, Headline, \
+    ProgressBar, ui_style
 
 from .input_parameter_table import InputParameterTable
 from .result_table import ResultTable
@@ -15,6 +15,7 @@ from .result_table import ResultTable
 class MainWindow(QWidget):
     def __init__(self, engine):
         super().__init__()
+        self.setObjectName("MainWindow")
 
         self.logic = MainWindowLogic(self, engine)
 
@@ -24,24 +25,22 @@ class MainWindow(QWidget):
         self.input_parameter_table = InputParameterTable(self.logic.engine)
         self.result_table = ResultTable()
         self.plot_widget = Plot()
-        self.calibration_button = StandardButton("Calibrate")
-        self.quality_select = StandardComboBox("Select fit quality:",
+        self.calibration_button = Button("Calibrate")
+        self.quality_select = ComboBox("Select fit quality:",
             list(self.logic.fit_quality_options.keys()))
-        self.model_select = StandardComboBox("Select model:",
+        self.model_select = ComboBox("Select model:",
             list(self.logic.model_select_options.keys()))
-        self.load_button = StandardButton("Choose .xlsx data")
-        self.run_mcmc_button = StandardButton("Run MCMC fit")
-        self.run_easy_button = StandardButton("Run least-squares fit")
+        self.load_button = Button("Choose .xlsx data")
+        self.run_mcmc_button = Button("Run MCMC fit")
+        self.run_easy_button = Button("Run least-squares fit")
         # progress bar and label
-        self.progress_bar = StandardProgressBar()
+        self.progress_bar = ProgressBar()
         self.status_label = QLabel()
 
         # create main window
         self.setWindowTitle("Python Time Machine")
         self.resize(ui_style.main_window.default_width,
             ui_style.main_window.default_height)
-        self.setStyleSheet(
-            f"background-color: {ui_style.main_window.background_color};")
 
         # outer layout
         outer_layout = QVBoxLayout()
@@ -76,13 +75,13 @@ class MainWindow(QWidget):
 
         # input parameter table with headline
         input_column = QVBoxLayout()
-        input_column.addWidget(StandardHeadline("Parameter Inputs"))
+        input_column.addWidget(Headline("Parameter Inputs"))
         input_column.addWidget(self.input_parameter_table)
         top_row.addLayout(input_column, stretch=1)
 
         # result table with headline
         result_column = QVBoxLayout()
-        result_column.addWidget(StandardHeadline("Fitting Results"))
+        result_column.addWidget(Headline("Fitting Results"))
         result_column.addWidget(self.result_table)
         # gets more stretch because it hase more columns
         top_row.addLayout(result_column, stretch=2)

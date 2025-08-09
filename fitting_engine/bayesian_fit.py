@@ -5,7 +5,7 @@ import sys
 import os
 import contextlib
 import logging
-from .fit_result_dataclass import FitResult
+from .fit_result import FitResult
 
 
 def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,

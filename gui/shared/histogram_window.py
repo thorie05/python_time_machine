@@ -22,5 +22,5 @@ class HistogramWindow(QDialog):
         ax.hist(data, bins="auto", color=ui_style.plot.histogram_color)
         ax.set_title(f"Posterior distribution of {param_name}")
         ax.set_xlabel("Value")
-        ax.set_ylabel("Frequency")
+        ax.set_ylabel("Number of samples")
         self.canvas.draw()

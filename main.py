@@ -23,6 +23,9 @@ def main():
     verbose = "--verbose" in sys.argv
 
     app = QApplication()
+    with open("gui/shared/style.qss") as file:
+        style = file.read()
+    app.setStyleSheet(style)
     engine = FittingEngine(verbose=True)  # debug: verbose always True
     window = MainWindow(engine)
     window.show()

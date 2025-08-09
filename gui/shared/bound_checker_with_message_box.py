@@ -5,13 +5,6 @@ class BoundCheckerWithMessageBox:
         self.engine = engine
         self.ui = ui
 
-    def _check(self, value, bounds, warning_text):
-        if not (bounds[0] <= value <= bounds[1]):
-
-            QMessageBox.warning(self.ui, "Warning", warning_text)
-            return False
-        return True
-
     def check_order(self, order):
         return self._check(order, self.engine.bounds.order,
             f"order must lie between {self.engine.bounds.order[0] + 1} "
@@ -57,3 +50,10 @@ class BoundCheckerWithMessageBox:
             f"Standard deviation of f must lie between "
             f"{self.engine.bounds.f_std[0]} and "
             f"{self.engine.bounds.f_std[1]}.")
+
+    def _check(self, value, bounds, warning_text):
+        if not (bounds[0] <= value <= bounds[1]):
+
+            QMessageBox.warning(self.ui, "Warning", warning_text)
+            return False
+        return True

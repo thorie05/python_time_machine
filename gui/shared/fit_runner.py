@@ -45,6 +45,7 @@ class FitRunner(QObject):
     def doWork(self):
         try:
             if self.fit_type == "mcmc":
+                # run full fit
                 self.result = self.engine.full_fit(self.x_data, self.y_data,
                     self.y_err_std, self.model_function, self.known_params,
                     known_params_err_std=self.known_params_err_std,
@@ -53,16 +54,19 @@ class FitRunner(QObject):
             else:
                 # get initial guess
                 self.status.emit("Finding initial guess...")
+
                 initial_guess = self.engine.get_initial_guess(self.x_data,
                     self.y_data, self.model_function, self.known_params,
                     bounds=self.bounds, y_err_std=self.y_err_std,
                     only_positive=True,
                     num_restarts=self.fit_quality.num_restarts)
+
                 # run least squares
                 self.status.emit("Running least-squares fit...")
                 self.result = self.engine.easy_fit(self.x_data, self.y_data,
                     self.model_function, self.known_params, initial_guess,
                     y_err_std=self.y_err_std)
+
             self.finished.emit()
         except Exception:
             tb = traceback.format_exc()

@@ -94,14 +94,6 @@ class MainWindowLogic(QObject):
             QMessageBox.warning(self.ui, "Warning", "No data loaded.")
             return
 
-        self.ui.result_table.clear_table()
-        self.ui.plot_widget.clear_plot()
-
-        fit_quality_select = self.ui.quality_select.get_text()
-        fit_quality = self.fit_quality_options[fit_quality_select]
-        model_function_select = self.ui.model_select.get_text()
-        self.model_function = self.model_select_options[model_function_select]
-
         self.order = self.ui.input_parameter_table.get_order()
         self.order_std = self.ui.input_parameter_table.get_order_std()
         self.sigma_phi = self.ui.input_parameter_table.get_sigma_phi()
@@ -112,6 +104,21 @@ class MainWindowLogic(QObject):
         self.f = self.ui.input_parameter_table.get_f()
         self.f_std = self.ui.input_parameter_table.get_f_std()
 
+        if not self.bounds_checker.check_order(self.order):
+            return
+        if not self.bounds_checker.check_sigma_phi(self.sigma_phi):
+            return
+        if not self.bounds_checker.check_mu(self.mu):
+            return
+
+        self.ui.result_table.clear()
+        self.ui.plot_widget.clear_plot()
+
+        fit_quality_select = self.ui.quality_select.get_text()
+        fit_quality = self.fit_quality_options[fit_quality_select]
+        model_function_select = self.ui.model_select.get_text()
+        self.model_function = self.model_select_options[model_function_select]
+
         known_params = {"order": self.order, "sigma_phi": self.sigma_phi,
             "mu": self.mu}
         known_params_err_std = {"order": self.order_std,
@@ -120,13 +127,6 @@ class MainWindowLogic(QObject):
             "sigma_phi": self.engine.bounds.sigma_phi,
             "mu": self.engine.bounds.mu,
             "t_exposure_1": self.engine.bounds.t_exposure_1}
-
-        if not self.bounds_checker.check_order(self.order):
-            return
-        if not self.bounds_checker.check_sigma_phi(self.sigma_phi):
-            return
-        if not self.bounds_checker.check_mu(self.mu):
-            return
 
         if fit_type == "mcmc":
             if not self.bounds_checker.check_order_std(self.order_std):
@@ -207,10 +207,8 @@ class MainWindowLogic(QObject):
             for param_name, samples in all_samples.items():
                 split_param_name = param_name.split("_")
                 histo_title = "$" + split_param_name[0] + r"_{\mathrm{" \
-                    + split_param_name[1] + "}, " \
-                    + split_param_name[2] + "}$"
-                self.ui.result_table.set_posterior_samples(param_name, samples,
-                    histo_title)
+                    + split_param_name[1] + "}," + split_param_name[2] + "}$"
+                self.ui.result_table.set_posterior_samples(param_name, samples)
 
         # construct known params
         known_params = {"order": self.order, "sigma_phi": self.sigma_phi,

@@ -1,7 +1,7 @@
 from .bayesian_fit import bayesian_fit
 from .bootstrap_fit import bootstrap_fit
 from .get_initial_guess import get_initial_guess
-from .fit_quality_settings_dataclass import fit_quality_settings
+from .fit_quality_settings import fit_quality_settings
 
 
 def full_fit(x_data, y_data, y_err_std, model_function, known_params,

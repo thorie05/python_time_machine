@@ -1,0 +1,22 @@
+QWidget#MainWindow {
+    background-color: #ffffff;
+}
+
+QLabel#BaseCell {
+    background-color: #ffffff;
+    border: 1px solid #c0c0c0;
+    padding: 4px;
+}
+
+HeaderCell {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+QLabel#IndexCell {
+    background-color: #f8f8f8;
+}
+
+QLabel#ContentCell {
+    background-color: #ffffff;
+}

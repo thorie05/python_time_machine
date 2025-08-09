@@ -4,7 +4,7 @@ from .bootstrap_fit import bootstrap_fit
 from .bayesian_fit import bayesian_fit
 from .full_fit import full_fit
 from .get_event_ages import get_event_ages
-from .bounds_dataclass import bounds
-from .fit_quality_settings_dataclass import fit_quality_settings
+from .bounds import bounds
+from .fit_quality_settings import fit_quality_settings
 from .calibrator import Calibrator
 from .fitting_engine import FittingEngine
