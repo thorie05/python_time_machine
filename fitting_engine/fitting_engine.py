@@ -5,7 +5,6 @@ from .bayesian_fit import bayesian_fit
 from .full_fit import full_fit
 from .get_event_ages import get_event_ages
 from .calibrator import Calibrator
-from .bounds import bounds
 from .fit_quality_settings import fit_quality_settings
 from . import models
 
@@ -24,7 +23,6 @@ class FittingEngine:
         models (module): Reference to the models module, which provides the
             mathematical model functions used for fitting. Use as:
             engine.models.model_name(...).
-        bounds (Bounds): Bounds instance to access bounds for parameters.
         verbose (bool): Flag controling console output.
 
     Methods:
@@ -38,7 +36,6 @@ class FittingEngine:
     def __init__(self, verbose=False):
         self.calibrator = None # not initialized yet
         self.models = models
-        self.bounds = bounds
         self.fit_quality_settings = fit_quality_settings
         self.verbose = verbose
 

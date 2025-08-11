@@ -1,49 +1,22 @@
 from PySide6.QtWidgets import QPushButton, QSizePolicy, QProgressBar, QWidget, \
-    QVBoxLayout, QLabel, QComboBox, QLayout, QFrame, QGridLayout
-from PySide6.QtCore import Signal, Qt
-
-from .ui_style import ui_style
+    QVBoxLayout, QLabel, QComboBox, QLayout, QFrame, QGridLayout, QLineEdit
+from PySide6.QtGui import QDoubleValidator
+from PySide6.QtCore import Qt
 
 
 class Button(QPushButton):
     def __init__(self, text):
         super().__init__(text)
+        self.setObjectName("Button")
 
         self.setMinimumHeight(20)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-
-        self.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {
-                    ui_style.standard_button.background_color
-                };
-                border: {ui_style.standard_button.border_width}px solid {
-                    ui_style.standard_button.border_color
-                };
-                padding: {
-                    ui_style.standard_button.vertical_padding
-                }px {
-                    ui_style.standard_button.vertical_padding
-                }px;
-            }}
-            QPushButton:hover {{
-                background-color: {
-                    ui_style.standard_button.background_color_hover
-                };
-            }}
-            QPushButton:pressed {{
-                background-color: {
-                    ui_style.standard_button.background_color_pressed
-                };
-            }}
-            """
-        )
 
 
 class ComboBox(QWidget):
     def __init__(self, label_text, options):
         super().__init__()
+        self.setObjectName("ComboBox")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -53,12 +26,6 @@ class ComboBox(QWidget):
         self.label = QLabel(label_text)
         self.combo_box = QComboBox()
         self.combo_box.addItems(options)
-
-        self.combo_box.setStyleSheet("""
-            QComboBox QAbstractItemView {
-                selection-color: black;
-            }
-            """)
 
         layout.addWidget(self.label)
         layout.addWidget(self.combo_box)
@@ -70,43 +37,22 @@ class ComboBox(QWidget):
 class Headline(QLabel):
     def __init__(self, text):
         super().__init__(text)
+        self.setObjectName("Headline")
 
         self.setContentsMargins(5, 0, 0, 0)
         self.setAlignment(Qt.AlignLeft)
-        self.setStyleSheet("font-size: "
-            f"{ui_style.standard_headline.font_size}px; "
-            f"font-weight: {ui_style.standard_headline.font_weight};")
 
 
 class ProgressBar(QProgressBar):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("ProgressBar")
+
 
         self.setTextVisible(False)
         self.setRange(0, 0)
         self.setAlignment(Qt.AlignCenter)
         self.setFixedHeight(4)
-
-        self.setStyleSheet(
-            f"""
-            QProgressBar {{
-                border: {ui_style.standard_progress_bar.border_width}px solid 
-                    {ui_style.standard_progress_bar.border_color};
-                border-radius: 
-                    {ui_style.standard_progress_bar.border_radius}px;
-                background-color: 
-                    {ui_style.standard_progress_bar.background_color};
-            }}
-
-            QProgressBar::chunk {{
-                background-color: 
-                    {ui_style.standard_progress_bar.chunk_color};
-                border-radius: 
-                    {ui_style.standard_progress_bar.chunk_radius}px;
-                margin: 0px;
-            }}
-            """
-        )
 
 
 class BaseCell(QLabel):
@@ -169,6 +115,24 @@ class ClickableContentCell(BaseCell):
             self.setCursor(Qt.IBeamCursor)  # text but not clickable
 
 
+class FloatInput(QLineEdit):
+    def __init__(self, default=0.0, bounds=(0.0, 1_000_000.0)):
+        super().__init__(str(default))
+        self.setObjectName("FloatInput")
+
+        self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        validator = QDoubleValidator(bounds[0], bounds[1], 8)
+        self.setValidator(validator)
+
+    def get_value(self, default=0.0):
+        try:
+            return float(self.text())
+        except ValueError:
+            return default
+
+
 class Table(QWidget):
     """Standard table widget."""
 
@@ -192,11 +156,8 @@ class Table(QWidget):
             self.grid.setColumnStretch(col, 1)
 
         table_frame = QFrame()
+        table_frame.setObjectName("TableFrame")
         table_frame.setFrameShape(QFrame.Box)
-        table_frame.setStyleSheet(
-            f"QFrame {{ border: {ui_style.table.border_width}px solid "
-            f"{ui_style.table.border_color}; }}"
-        )
 
         frame_layout = QGridLayout(table_frame)
         frame_layout.addLayout(self.grid, 0, 0)

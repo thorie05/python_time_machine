@@ -1,9 +1,12 @@
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 from PySide6.QtCore import Qt, QObject
 import numpy as np
+from inspect import signature
 
 from ..shared.fit_runner import FitRunner
-from ..shared.bound_checker_with_message_box import BoundCheckerWithMessageBox
+from ..shared.check_bounds_with_message_box import check_bounds_with_message_box
+from ..shared.param_names_unicode import param_names_unicode
+from ..shared.param_bounds import param_bounds
 
 from .read_xlsx import read_xlsx
 from ..calibration_window.calibration_window import CalibrationWindow
@@ -14,14 +17,14 @@ class MainWindowLogic(QObject):
         super().__init__()
         self.ui = main_window
 
-        self.model_select_options = {
+        self.MODEL_SELECT_OPTIONS = {
             "Single Exposure": engine.models.expo,
             "Exposure-Burial":engine.models.expo_buri,
             "Exposure-Burial-Exposure": engine.models.expo_buri_expo,
             "Exposure-Burial-Exposure-Burial":
                 engine.models.expo_buri_expo_buri,
             }
-        self.fit_quality_options = {
+        self.FIT_QUALITY_OPTIONS = {
             "low": engine.fit_quality_settings.low,
             "medium": engine.fit_quality_settings.medium,
             "high": engine.fit_quality_settings.high,
@@ -31,27 +34,17 @@ class MainWindowLogic(QObject):
         self.engine = engine
         self.fit_runner = None
 
-        self.bounds_checker = BoundCheckerWithMessageBox(engine, main_window)
-
         # input data
         self.x_data = None
         self.y_data = None
         self.y_err_std = None
 
-        # input parameters
-        self.order = None
-        self.order_std = None
-        self.sigma_phi = None
-        self.sigma_phi_std = None
-        self.mu = None
-        self.mu_std = None
-        self.f = None
-        self.f_std = None
-
+        self.known_params = None
+        self.known_params_err_std = None
         self.model_function = None
 
+        # fit result
         self.fit_result = None
-
 
     def load_xlsx(self):
         """Opens a file dialog to open the data and plots them on the screen."""
@@ -94,68 +87,75 @@ class MainWindowLogic(QObject):
             QMessageBox.warning(self.ui, "Warning", "No data loaded.")
             return
 
-        self.order = self.ui.input_parameter_table.get_order()
-        self.order_std = self.ui.input_parameter_table.get_order_std()
-        self.sigma_phi = self.ui.input_parameter_table.get_sigma_phi()
-        self.sigma_phi_std \
-            = self.ui.input_parameter_table.get_sigma_phi_std()
-        self.mu = self.ui.input_parameter_table.get_mu()
-        self.mu_std = self.ui.input_parameter_table.get_mu_std()
-        self.f = self.ui.input_parameter_table.get_f()
-        self.f_std = self.ui.input_parameter_table.get_f_std()
+        # get parameter values with stds for all input parameters from the ui
+        # input table
+        input_parameter_table = self.ui.input_parameter_table
+        input_parameter_names = input_parameter_table.INPUT_PARAMETER_NAMES
 
-        if not self.bounds_checker.check_order(self.order):
-            return
-        if not self.bounds_checker.check_sigma_phi(self.sigma_phi):
-            return
-        if not self.bounds_checker.check_mu(self.mu):
-            return
+        self.known_params = {
+            param_name: input_parameter_table.get_value(param_name) \
+            for param_name in input_parameter_names}
 
+        self.known_params_err_std = {
+            param_name: input_parameter_table.get_std(param_name) \
+            for param_name in input_parameter_names}
+
+        # decrement order by 1, see models.py for documentation
+        self.known_params["order"] -= 1.0
+
+        # get the fit quality and model function from the ui combo boxes
+        fit_quality_select = self.ui.quality_select.get_text()
+        fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
+        model_function_select = self.ui.model_select.get_text()
+        self.model_function = self.MODEL_SELECT_OPTIONS[model_function_select]
+
+        # retrieve model function arguments
+        model_arguments = signature(self.model_function).parameters
+
+        # filter known_params and known_params_err_std to only hold arguments
+        # of the selected model function
+        # (e.g. F is not necessary for single exposure)
+        self.known_params = {
+            param_name: value for param_name, value \
+            in self.known_params.items() if param_name in model_arguments}
+        self.known_params_err_std = {
+            param_name: value for param_name, value \
+            in self.known_params_err_std.items() \
+            if param_name in model_arguments}
+
+        # check if the user submitted numbers that lie within the bounds for the
+        # parameter values and standard deviations, if not show an alert box and
+        # abort the fit
+        for param_name, value in self.known_params.items():
+            if not check_bounds_with_message_box(self.ui, value,
+                param_bounds.val.asdict()[param_name],
+                param_names_unicode.asdict()[param_name]):
+                return
+        # standard deviations of known parameters are only relevant for mcmc fit
+        if fit_type == "mcmc":
+            for param_name, value in self.known_params_err_std.items():
+                if not check_bounds_with_message_box(self.ui, value,
+                    param_bounds.std.asdict()[param_name],
+                    param_names_unicode.asdict()[param_name], std=True):
+                    return
+
+        # get a list of all free/fit parameter names
+        free_params = [param_name for param_name in model_arguments \
+            if param_name not in self.known_params.keys()]
+
+        # get bounds for the free parameters
+        # (needed for the global initial guess finder)
+        bounds = {param_name: value for param_name, value \
+            in param_bounds.val.asdict().items() if param_name in free_params}
+
+        # clear result table and plot
         self.ui.result_table.clear()
         self.ui.plot_widget.clear_plot()
 
-        fit_quality_select = self.ui.quality_select.get_text()
-        fit_quality = self.fit_quality_options[fit_quality_select]
-        model_function_select = self.ui.model_select.get_text()
-        self.model_function = self.model_select_options[model_function_select]
-
-        known_params = {"order": self.order, "sigma_phi": self.sigma_phi,
-            "mu": self.mu}
-        known_params_err_std = {"order": self.order_std,
-            "sigma_phi": self.sigma_phi_std, "mu": self.mu_std}
-        bounds = {"order": self.engine.bounds.order,
-            "sigma_phi": self.engine.bounds.sigma_phi,
-            "mu": self.engine.bounds.mu,
-            "t_exposure_1": self.engine.bounds.t_exposure_1}
-
-        if fit_type == "mcmc":
-            if not self.bounds_checker.check_order_std(self.order_std):
-                return
-            if not self.bounds_checker.check_sigma_phi_std(self.sigma_phi_std):
-                return
-            if not self.bounds_checker.check_mu_std(self.mu_std):
-                return
-
-        if self.model_function != self.engine.models.expo:
-            if not self.bounds_checker.check_f(self.f):
-                return
-            if fit_type == "mcmc":
-                if not self.bounds_checker.check_f_std(self.f_std):
-                    return
-
-            known_params["f"] = self.f
-            known_params_err_std["f"] = self.f_std
-            bounds["t_burial_1"] = self.engine.bounds.t_burial_1
-
-            if self.model_function != self.engine.models.expo_buri:
-                bounds["t_exposure_2"] = self.engine.bounds.t_exposure_2
-
-                if self.model_function != self.engine.models.expo_buri_expo:
-                    bounds["t_burial_2"] = self.engine.bounds.t_burial_2
-
+        # run fit 
         self.fit_runner = FitRunner(self.engine, self.x_data,
-            self.y_data, self.y_err_std, self.model_function, known_params,
-            bounds, fit_type, known_params_err_std=known_params_err_std,
+            self.y_data, self.y_err_std, self.model_function, self.known_params,
+            bounds, fit_type, known_params_err_std=self.known_params_err_std,
             fit_quality=fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
@@ -184,7 +184,6 @@ class MainWindowLogic(QObject):
                 "accuracy of the known parameters.")
         print(self.fit_result)
 
-
         for param_name, value in self.fit_result.best_fit.items():
             self.ui.result_table.set_result(param_name, value)
 
@@ -205,19 +204,11 @@ class MainWindowLogic(QObject):
 
             all_samples = self.fit_result.samples | event_ages_samples
             for param_name, samples in all_samples.items():
-                split_param_name = param_name.split("_")
-                histo_title = "$" + split_param_name[0] + r"_{\mathrm{" \
-                    + split_param_name[1] + "}," + split_param_name[2] + "}$"
                 self.ui.result_table.set_posterior_samples(param_name, samples)
 
-        # construct known params
-        known_params = {"order": self.order, "sigma_phi": self.sigma_phi,
-            "mu": self.mu}
-        if self.model_function != self.engine.models.expo:
-            known_params["f"] = self.f
         # plot fitted curve
         x_data_fit = np.linspace(np.min(self.x_data), np.max(self.x_data), 200)
-        y_data_fit = self.model_function(x_data_fit, **known_params,
+        y_data_fit = self.model_function(x_data_fit, **self.known_params,
             **self.fit_result.best_fit)
         self.ui.plot_widget.plot(x_data_fit, y_data_fit)
 

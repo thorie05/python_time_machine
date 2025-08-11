@@ -1,22 +1,65 @@
-QWidget#MainWindow {
+MainWindow {
     background-color: #ffffff;
 }
 
-QLabel#BaseCell {
+Button {
+    background-color: #f0f0f0;
+    border: 1px solid #aaaaaa;
+    padding: 6px 6px;
+}
+Button:hover {
+    background-color: #d0d0d0;
+}
+Button:pressed {
+    background-color: #d0d0d0;
+}
+
+ComboBox QComboBox {
+    background-color: #ffffff;
+}
+ComboBox QComboBox QAbstractItemView {
+    selection-color: #000000;
+}
+
+Headline {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+ProgressBar {
+    border: 1px solid #b0b0b0;
+    border-radius: 0px;
+    background-color: #f0f0f0;
+}
+ProgressBar::chunk {
+    background-color: #1f77b4;
+    border-radius: 0px;
+}
+
+BaseCell {
     background-color: #ffffff;
     border: 1px solid #c0c0c0;
     padding: 4px;
 }
-
 HeaderCell {
     background-color: #f0f0f0;
     font-weight: bold;
 }
-
-QLabel#IndexCell {
+IndexCell {
     background-color: #f8f8f8;
 }
-
-QLabel#ContentCell {
+ContentCell {
     background-color: #ffffff;
+}
+FloatInput {
+    background-color: #ffffff;
+    border: 1px solid #c0c0c0;
+    padding: 4px;
+    selection-background-color: #a0c0e0;
+}
+FloatInput:focus {
+    border: 1px solid #1f77b4;
+}
+#TableFrame {
+    border: 1px solid #c0c0c0;
 }

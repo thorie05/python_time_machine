@@ -6,7 +6,8 @@ from .main_window_logic import MainWindowLogic
 
 from ..shared.plot import Plot
 from .. shared.standard_widgets import Button, ComboBox, Headline, \
-    ProgressBar, ui_style
+    ProgressBar
+from ..shared.ui_style import ui_style
 
 from .input_parameter_table import InputParameterTable
 from .result_table import ResultTable
@@ -27,9 +28,9 @@ class MainWindow(QWidget):
         self.plot_widget = Plot()
         self.calibration_button = Button("Calibrate")
         self.quality_select = ComboBox("Select fit quality:",
-            list(self.logic.fit_quality_options.keys()))
+            list(self.logic.FIT_QUALITY_OPTIONS.keys()))
         self.model_select = ComboBox("Select model:",
-            list(self.logic.model_select_options.keys()))
+            list(self.logic.MODEL_SELECT_OPTIONS.keys()))
         self.load_button = Button("Choose .xlsx data")
         self.run_mcmc_button = Button("Run MCMC fit")
         self.run_easy_button = Button("Run least-squares fit")
