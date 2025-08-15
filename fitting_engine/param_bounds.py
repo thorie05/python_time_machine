@@ -1,5 +1,6 @@
 from dataclasses import dataclass, asdict
 
+
 @dataclass(frozen=True)
 class StdBounds:
     order: tuple = (0.0, 1.0)

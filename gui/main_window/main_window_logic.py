@@ -1,12 +1,10 @@
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
 from PySide6.QtCore import Qt, QObject
 import numpy as np
 from inspect import signature
 
 from ..shared.fit_runner import FitRunner
-from ..shared.check_bounds_with_message_box import check_bounds_with_message_box
-from ..shared.param_names_unicode import param_names_unicode
-from ..shared.param_bounds import param_bounds
+from ..shared.style_config import param_names_unicode
 
 from .read_xlsx import read_xlsx
 from ..calibration_window.calibration_window import CalibrationWindow
@@ -123,20 +121,30 @@ class MainWindowLogic(QObject):
             in self.known_params_err_std.items() \
             if param_name in model_arguments}
 
-        # check if the user submitted numbers that lie within the bounds for the
-        # parameter values and standard deviations, if not show an alert box and
-        # abort the fit
-        for param_name, value in self.known_params.items():
-            if not check_bounds_with_message_box(self.ui, value,
-                param_bounds.val.asdict()[param_name],
-                param_names_unicode.asdict()[param_name]):
+        # check that all input parameters lie within the specified bounds
+        # if not show alert box and abort the fit
+        for param_name in self.known_params:
+            value_val = self.known_params[param_name]
+            value_std = self.known_params_err_std[param_name]
+            lower_val, upper_val \
+                = self.engine.param_bounds.val.asdict()[param_name]
+            lower_std, upper_std \
+                = self.engine.param_bounds.std.asdict()[param_name]
+            param_name_unicode = param_names_unicode.asdict()[param_name]
+
+            # always check known values
+            if not (lower_val <= value_val <= upper_val):
+                QMessageBox.warning(self.ui, "Warning", 
+                    f"{param_name_unicode} must lie between {lower_val} and "
+                    f"{upper_val}")
                 return
-        # standard deviations of known parameters are only relevant for mcmc fit
-        if fit_type == "mcmc":
-            for param_name, value in self.known_params_err_std.items():
-                if not check_bounds_with_message_box(self.ui, value,
-                    param_bounds.std.asdict()[param_name],
-                    param_names_unicode.asdict()[param_name], std=True):
+
+            # standard deviations are only relevant for the mcmc fit
+            if fit_type == "mcmc":
+                if not (lower_std <= value_std <= upper_std):
+                    QMessageBox.warning(self.ui, "Warning",
+                        f"Standard deviation of {param_name_unicode} must lie "
+                        f"between {lower_std} and {upper_std}")
                     return
 
         # get a list of all free/fit parameter names
@@ -146,7 +154,8 @@ class MainWindowLogic(QObject):
         # get bounds for the free parameters
         # (needed for the global initial guess finder)
         bounds = {param_name: value for param_name, value \
-            in param_bounds.val.asdict().items() if param_name in free_params}
+            in self.engine.param_bounds.val.asdict().items() \
+            if param_name in free_params}
 
         # clear result table and plot
         self.ui.result_table.clear()
@@ -211,13 +220,50 @@ class MainWindowLogic(QObject):
         y_data_fit = self.model_function(x_data_fit, **self.known_params,
             **self.fit_result.best_fit)
         self.ui.plot_widget.plot(x_data_fit, y_data_fit)
+    def on_fit_failed(self, message):
+        self.ui.progress_bar.setVisible(False)
+        self.ui.status_label.setVisible(False)
+
+        # Create a custom QMessageBox
+        msg_box = QMessageBox(self.ui)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Error")
+        msg_box.setText("Fit crashed. This should not happen. Could be caused by bad input "
+                        "data or bad input parameters.")
+        msg_box.setInformativeText("Full error message:")
+
+        # Create a scrollable text area for the long message
+        text_edit = QTextEdit()
+        text_edit.setPlainText(message)
+        text_edit.setReadOnly(True)
+        text_edit.setMinimumSize(400, 200)  # ensures it's visible enough
+        text_edit.setMaximumSize(800, 400)  # prevents overflow
+
+        msg_box.layout().addWidget(text_edit, 1, 0, 1, msg_box.layout().columnCount())
+
+        msg_box.exec()
 
     def on_fit_failed(self, message):
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
-        QMessageBox.critical(self.ui, "Error",
-            "Fit crashed. This should not happen. Could be caused by bad input "
-            f"data or bad input parameters. \n\nError message: \n{message}")
+
+        # custom message box
+        msg_box = QMessageBox(self.ui)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Error")
+        msg_box.setText("Fit crashed. This should not happen. Could be caused "
+            "by bad input data or bad input parameters.")
+        msg_box.setInformativeText("Full error message:")
+
+        # create a scrollable text area
+        text_edit = QTextEdit()
+        text_edit.setPlainText(message)
+        text_edit.setReadOnly(True)
+        text_edit.setMaximumSize(800, 400)  # prevent overflow
+
+        msg_box.layout().addWidget(text_edit, 2, 0, 1,
+            msg_box.layout().columnCount())
+        msg_box.exec()
 
     def clear_fit_runner(self):
         self.fit_runner = None

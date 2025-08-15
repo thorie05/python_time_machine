@@ -1,11 +1,33 @@
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from PySide6.QtWidgets import QVBoxLayout, QDialog
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import numpy as np
 
-from .ui_style import ui_style
+from .style_config import style_tokens
 
 
-class Plot(FigureCanvas):
+class HistogramWindow(QDialog):
+    def __init__(self, data, param_name):
+        super().__init__()
+        self.setWindowTitle("Histogram")
+        layout = QVBoxLayout()
+        self.canvas = FigureCanvasQTAgg(Figure())
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
+
+        self.plot_histogram(data, param_name)
+
+    def plot_histogram(self, data, param_name):
+        ax = self.canvas.figure.add_subplot(111)
+        ax.clear()
+        ax.hist(data, bins="auto", color=style_tokens.plot.histogram_color)
+        ax.set_title(f"Posterior distribution of {param_name}")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Number of samples")
+        self.canvas.draw()
+
+
+class Plot(FigureCanvasQTAgg):
     def __init__(self):
         self.fig = Figure(figsize=(5, 4))
         self.fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.15)
@@ -53,7 +75,7 @@ class Plot(FigureCanvas):
         self.y_data_plot = y_data
 
         # show new plot
-        self.ax.plot(x_data, y_data, color=ui_style.plot.plot_color)
+        self.ax.plot(x_data, y_data, color=style_tokens.plot.plot_color)
 
         # adjust limits
         self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
@@ -64,10 +86,10 @@ class Plot(FigureCanvas):
             if self.y_err_data_scatter is not None:
                 self.ax.errorbar(self.x_data_scatter, self.y_data_scatter,
                     yerr=self.y_err_data_scatter, fmt='o', capsize=4,
-                    color=ui_style.plot.scatter_color)
+                    color=style_tokens.plot.scatter_color)
             else:
                 self.ax.scatter(self.x_data_scatter, self.y_data_scatter,
-                    color=ui_style.plot.scatter_color)
+                    color=style_tokens.plot.scatter_color)
 
     def clear(self):
         self.ax.cla()
@@ -98,4 +120,3 @@ class Plot(FigureCanvas):
             y_max = 1
 
         self.ax.set_ylim(bottom=0, top=y_max * 1.05)
-

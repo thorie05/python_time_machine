@@ -1,7 +1,6 @@
-from ..shared.histogram_window import HistogramWindow
-from ..shared.standard_widgets import Table, HeaderCell, IndexCell, \
-    ClickableContentCell
-from ..shared.param_names_unicode import param_names_unicode
+from ..shared.plots import HistogramWindow
+from ..shared.table import Table, HeaderCell, IndexCell, ClickableContentCell
+from ..shared.style_config import param_names_unicode
 from functools import partial
 
 

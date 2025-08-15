@@ -1,58 +1,7 @@
-from PySide6.QtWidgets import QPushButton, QSizePolicy, QProgressBar, QWidget, \
-    QVBoxLayout, QLabel, QComboBox, QLayout, QFrame, QGridLayout, QLineEdit
+from PySide6.QtWidgets import QSizePolicy, QWidget, QLabel,QFrame, \
+    QGridLayout, QLineEdit
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtCore import Qt
-
-
-class Button(QPushButton):
-    def __init__(self, text):
-        super().__init__(text)
-        self.setObjectName("Button")
-
-        self.setMinimumHeight(20)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-
-
-class ComboBox(QWidget):
-    def __init__(self, label_text, options):
-        super().__init__()
-        self.setObjectName("ComboBox")
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.setSizeConstraint(QLayout.SetFixedSize)
-
-        self.label = QLabel(label_text)
-        self.combo_box = QComboBox()
-        self.combo_box.addItems(options)
-
-        layout.addWidget(self.label)
-        layout.addWidget(self.combo_box)
-
-    def get_text(self):
-        return self.combo_box.currentText()
-
-
-class Headline(QLabel):
-    def __init__(self, text):
-        super().__init__(text)
-        self.setObjectName("Headline")
-
-        self.setContentsMargins(5, 0, 0, 0)
-        self.setAlignment(Qt.AlignLeft)
-
-
-class ProgressBar(QProgressBar):
-    def __init__(self):
-        super().__init__()
-        self.setObjectName("ProgressBar")
-
-
-        self.setTextVisible(False)
-        self.setRange(0, 0)
-        self.setAlignment(Qt.AlignCenter)
-        self.setFixedHeight(4)
 
 
 class BaseCell(QLabel):
@@ -82,10 +31,7 @@ class ClickableContentCell(BaseCell):
     def __init__(self, text=""):
         super().__init__(text)
         self.setObjectName("ContentCell")
-
         self._on_double_click = None
-
-        self.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self._update_cursor()
 
     def setText(self, text):
@@ -108,17 +54,20 @@ class ClickableContentCell(BaseCell):
 
     def _update_cursor(self):
         if not self.text():
-            self.setCursor(Qt.ArrowCursor)  # no text
+            self.setTextInteractionFlags(Qt.NoTextInteraction)
+            self.setCursor(Qt.ArrowCursor)
         elif self._on_double_click is not None:
-            self.setCursor(Qt.PointingHandCursor)  # clickable text
+            self.setTextInteractionFlags(Qt.NoTextInteraction)
+            self.setCursor(Qt.PointingHandCursor)
         else:
-            self.setCursor(Qt.IBeamCursor)  # text but not clickable
+            self.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            self.setCursor(Qt.IBeamCursor)
 
 
-class FloatInput(QLineEdit):
+class InputCell(QLineEdit):
     def __init__(self, default=0.0, bounds=(0.0, 1_000_000.0)):
         super().__init__(str(default))
-        self.setObjectName("FloatInput")
+        self.setObjectName("InputCell")
 
         self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

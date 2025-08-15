@@ -1,65 +1,80 @@
+/* MainWindow */
 MainWindow {
-    background-color: #ffffff;
+    background-color: ${MainWindow.background_color};
 }
 
+/* Button */
 Button {
-    background-color: #f0f0f0;
-    border: 1px solid #aaaaaa;
-    padding: 6px 6px;
+    background-color: ${Button.background_color};
+    border: ${Button.border_width}px solid ${Button.border_color};
+    padding: ${Button.vertical_padding}px ${Button.horizontal_padding}px;
 }
 Button:hover {
-    background-color: #d0d0d0;
+    background-color: ${Button.background_color_hover};
 }
 Button:pressed {
-    background-color: #d0d0d0;
+    background-color: ${Button.background_color_pressed};
 }
 
+/* ComboBox */
 ComboBox QComboBox {
-    background-color: #ffffff;
+    background-color: ${ComboBox.background_color};
 }
 ComboBox QComboBox QAbstractItemView {
-    selection-color: #000000;
+    selection-color: ${ComboBox.selection_color};
 }
 
+/* Headline */
 Headline {
-    font-size: 20px;
-    font-weight: bold;
+    font-size: ${Headline.font_size}px;
+    font-weight: ${Headline.font_weight};
 }
 
+/* ProgressBar */
 ProgressBar {
-    border: 1px solid #b0b0b0;
-    border-radius: 0px;
-    background-color: #f0f0f0;
+    border: ${ProgressBar.border_width}px solid ${ProgressBar.border_color};
+    border-radius: ${ProgressBar.border_radius}px;
+    background-color: ${ProgressBar.background_color};
 }
 ProgressBar::chunk {
-    background-color: #1f77b4;
+    background-color: ${ProgressBar.chunk_color};
     border-radius: 0px;
 }
 
+/* Table - BaseCell */
 BaseCell {
-    background-color: #ffffff;
-    border: 1px solid #c0c0c0;
-    padding: 4px;
+    border: ${Table.border_width}px solid ${Table.border_color};
+    padding: ${Table.cell_padding}px;
 }
+
+/* Table - HeaderCell */
 HeaderCell {
-    background-color: #f0f0f0;
+    background-color: ${Table.header_background_color};
     font-weight: bold;
 }
+
+/* Table - IndexCell */
 IndexCell {
-    background-color: #f8f8f8;
+    background-color: ${Table.index_background_color};
 }
+
+/* Table - ContentCell */
 ContentCell {
-    background-color: #ffffff;
+    background-color: ${Table.content_background_color};
 }
-FloatInput {
-    background-color: #ffffff;
-    border: 1px solid #c0c0c0;
-    padding: 4px;
-    selection-background-color: #a0c0e0;
+
+/* Table - InputCell */
+InputCell {
+    background-color: ${Table.input_background_color};
+    border: ${Table.border_width}px solid ${Table.border_color};
+    padding: ${Table.cell_padding}px;
+    selection-background-color: ${Table.input_selection_background_color};
 }
-FloatInput:focus {
-    border: 1px solid #1f77b4;
+InputCell:focus {
+    border: ${Table.border_width}px solid ${Table.input_selection_border_color};
 }
+
+/* Table - TableFrame */
 #TableFrame {
-    border: 1px solid #c0c0c0;
+    border: ${Table.border_width}px solid ${Table.border_color};
 }

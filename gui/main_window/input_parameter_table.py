@@ -1,6 +1,5 @@
-from ..shared.standard_widgets import HeaderCell, IndexCell, FloatInput, Table
-from ..shared.param_names_unicode import param_names_unicode
-from ..shared.param_bounds import param_bounds
+from ..shared.table import HeaderCell, IndexCell, InputCell, Table
+from ..shared.style_config import param_names_unicode
 
 
 class InputParameterTable(Table):
@@ -12,8 +11,8 @@ class InputParameterTable(Table):
         self.DEFAULT_VALUES \
             = {"order": 1.0, "sigma_phi": 5.0, "mu": 5.0, "f": 0.0001}
 
-        bounds_val = param_bounds.val.asdict()
-        bounds_std = param_bounds.std.asdict()
+        bounds_val = engine.param_bounds.val.asdict()
+        bounds_std = engine.param_bounds.std.asdict()
 
         # increment order bounds by 1, see models.py for documentation
         bounds_val["order"] = (bounds_val["order"][0] + 1.0,
@@ -21,12 +20,12 @@ class InputParameterTable(Table):
 
         # dicts mapping parameter names to their table cell widgets
         self.VALUE_INPUT_CELLS = {
-            param_name: FloatInput(
+            param_name: InputCell(
             default=self.DEFAULT_VALUES[param_name],
             bounds=bounds_val[param_name]) \
             for param_name in self.INPUT_PARAMETER_NAMES}
         self.STD_INPUT_CELLS = {
-            param_name: FloatInput(bounds=bounds_std[param_name]) \
+            param_name: InputCell(bounds=bounds_std[param_name]) \
             for param_name in self.INPUT_PARAMETER_NAMES}
 
         # 2d layout of the table, row by row

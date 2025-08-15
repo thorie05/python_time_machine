@@ -6,6 +6,7 @@ from .full_fit import full_fit
 from .get_event_ages import get_event_ages
 from .calibrator import Calibrator
 from .fit_quality_settings import fit_quality_settings
+from .param_bounds import param_bounds
 from . import models
 
 
@@ -37,6 +38,7 @@ class FittingEngine:
         self.calibrator = None # not initialized yet
         self.models = models
         self.fit_quality_settings = fit_quality_settings
+        self.param_bounds = param_bounds
         self.verbose = verbose
 
     def init_calibrator(self, order, order_std,

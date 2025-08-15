@@ -4,10 +4,9 @@ from functools import partial
 
 from .main_window_logic import MainWindowLogic
 
-from ..shared.plot import Plot
-from .. shared.standard_widgets import Button, ComboBox, Headline, \
-    ProgressBar
-from ..shared.ui_style import ui_style
+from ..shared.plots import Plot
+from ..shared.baisc_widgets import Button, ComboBox, Headline, ProgressBar
+from ..shared.style_config import style_tokens
 
 from .input_parameter_table import InputParameterTable
 from .result_table import ResultTable
@@ -40,15 +39,15 @@ class MainWindow(QWidget):
 
         # create main window
         self.setWindowTitle("Python Time Machine")
-        self.resize(ui_style.main_window.default_width,
-            ui_style.main_window.default_height)
+        self.resize(style_tokens.main_window.default_width,
+            style_tokens.main_window.default_height)
 
         # outer layout
         outer_layout = QVBoxLayout()
-        outer_layout.setContentsMargins(ui_style.main_window.outer_margin,
-            ui_style.main_window.outer_margin,
-            ui_style.main_window.outer_margin, 0)
-        outer_layout.setSpacing(ui_style.main_window.inner_window_spacing)
+        outer_layout.setContentsMargins(style_tokens.main_window.outer_margin,
+            style_tokens.main_window.outer_margin,
+            style_tokens.main_window.outer_margin,
+            style_tokens.main_window.outer_margin_lower)
 
         # content area
         content_layout = QVBoxLayout()
@@ -73,6 +72,7 @@ class MainWindow(QWidget):
         """
 
         top_row = QHBoxLayout()
+        top_row.setSpacing(20)
 
         # input parameter table with headline
         input_column = QVBoxLayout()
