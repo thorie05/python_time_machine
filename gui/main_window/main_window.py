@@ -1,26 +1,31 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt
 from functools import partial
 
-from .main_window_logic import MainWindowLogic
-
-from ..shared.plots import Plot
-from ..shared.baisc_widgets import Button, ComboBox, Headline, ProgressBar
-from ..shared.style_config import style_tokens
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
 
 from .input_parameter_table import InputParameterTable
+from .main_window_logic import MainWindowLogic
 from .result_table import ResultTable
+from ..shared.basic_widgets import Button, ComboBox, Headline, ProgressBar
+from ..shared.plots import Plot
+from ..shared.style_config import style_tokens
 
 
 class MainWindow(QWidget):
+    """
+    The application's main window.
+
+    Hosts the primary UI elements and connects them to the application logic,
+    which is factored out in its own MainWindowLogic class.
+    """
+
     def __init__(self, engine):
         super().__init__()
         self.setObjectName("MainWindow")
 
         self.logic = MainWindowLogic(self, engine)
 
-        # these widgets need to be stored as arguments because they encompass
-        # functionality and aren't purely visual -> later access is necessary
+        # functional widgets are stored as attributes for later access
         self.calibration_window = None
         self.input_parameter_table = InputParameterTable(self.logic.engine)
         self.result_table = ResultTable()
@@ -33,12 +38,11 @@ class MainWindow(QWidget):
         self.load_button = Button("Choose .xlsx data")
         self.run_mcmc_button = Button("Run MCMC fit")
         self.run_easy_button = Button("Run least-squares fit")
-        # progress bar and label
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
 
         # create main window
-        self.setWindowTitle("Python Time Machine")
+        self.setWindowTitle(style_tokens.main_window.window_title)
         self.resize(style_tokens.main_window.default_width,
             style_tokens.main_window.default_height)
 
@@ -65,14 +69,10 @@ class MainWindow(QWidget):
         self.setLayout(outer_layout)
 
     def create_top_row(self):
-        """Creates the top row.
-        
-        Creates the top row with the input parameter table with its headline as
-        well as the results table with its headline.
-        """
+        """Creates the top row, with the input parameter and result tables."""
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(20)
+        top_row.setSpacing(style_tokens.main_window.top_row_spacing)
 
         # input parameter table with headline
         input_column = QVBoxLayout()
@@ -90,22 +90,19 @@ class MainWindow(QWidget):
         return top_row
 
     def create_bottom_row(self):
-        """Creates the bottom row.
-
-        Creates the bottom row with the main plot on the left side and a column
-        containing the relevant buttons on the right side.
-        """
+        """Creates the bottom row with the main plot and the button column."""
 
         bottom_row = QHBoxLayout()
 
         # plot_widget
-        self.plot_widget.setMinimumHeight(400)
+        self.plot_widget.setMinimumHeight(style_tokens.plot.minimum_height)
         bottom_row.addWidget(self.plot_widget, stretch=4)
 
         # create button column containing all buttons and combo boxes
         button_column = QVBoxLayout()
-        button_column.setSpacing(20) 
-        button_column.setContentsMargins(0, 50, 0, 0)
+        button_column.setSpacing(style_tokens.main_window.bottom_row_spacing) 
+        button_column.setContentsMargins(
+            0, style_tokens.main_window.button_column_top_margin, 0, 0)
 
         # calibration button
         self.calibration_button.clicked.connect(
@@ -118,36 +115,25 @@ class MainWindow(QWidget):
         self.load_button.setFocusPolicy(Qt.NoFocus)
         button_column.addWidget(self.load_button)
 
-        # combo box for model selection
+        # combo boxes for model and fit quality selection
         button_column.addWidget(self.model_select)
-
-        # combo box for fit quality selection
         button_column.addWidget(self.quality_select)
-        # set default value to medium
-        self.quality_select.combo_box.setCurrentIndex(1)
+        self.quality_select.combo_box.setCurrentIndex(1) # medium default value
 
-        # run mcmc fit button
+        # run mcmc and least square fit buttons
         self.run_mcmc_button.clicked.connect(partial(self.logic.run_fit,
             "mcmc"))
-        self.run_mcmc_button.setFocusPolicy(Qt.NoFocus)
-
-        # run least squares fit button
         self.run_easy_button.clicked.connect(partial(self.logic.run_fit,
             "easy"))
-        self.run_easy_button.setFocusPolicy(Qt.NoFocus)
-
-        # layout to place both buttons side-by-side, left-aligned
         fit_button_row = QHBoxLayout()
         fit_button_row.setAlignment(Qt.AlignLeft)
         fit_button_row.addWidget(self.run_mcmc_button)
         fit_button_row.addWidget(self.run_easy_button)
-
-        # Add the row to the button_column layout
         button_column.addLayout(fit_button_row)
 
         # loading bar and label in a tight sub-layout
         progress_layout = QVBoxLayout()
-        progress_layout.setSpacing(2)  # smaller spacing between bar and label
+        progress_layout.setSpacing(2) # smaller spacing between bar and label
         progress_layout.setContentsMargins(0, 0, 0, 0)
 
         self.progress_bar.setVisible(False)

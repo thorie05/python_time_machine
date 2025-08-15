@@ -5,10 +5,15 @@ from functools import partial
 
 
 class ResultTable(Table):
-    """Result table widget."""
+    """
+    Table widget that displays fitting results.
+
+    A table displaying the fitting results for the exposure and burial timespans
+    and event ages along with their standard deviations.
+    """
 
     def __init__(self):
-        # all names result parameter names displayed somewhere int the table
+        # all names result parameter names displayed in the table
         self.RESULT_PARAMETER_NAMES = ["t_exposure_1", "t_burial_1",
             "t_exposure_2", "t_burial_2", "age_exposure_1", "age_burial_1",
             "age_exposure_2", "age_burial_2"]

@@ -1,33 +1,42 @@
-from PySide6.QtWidgets import QVBoxLayout, QDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import numpy as np
+from PySide6.QtWidgets import QDialog, QVBoxLayout
 
 from .style_config import style_tokens
 
 
 class HistogramWindow(QDialog):
+    """A popup window that displays posterior samples in a histogram."""
+
     def __init__(self, data, param_name):
         super().__init__()
+
         self.setWindowTitle("Histogram")
+
         layout = QVBoxLayout()
         self.canvas = FigureCanvasQTAgg(Figure())
         layout.addWidget(self.canvas)
         self.setLayout(layout)
 
-        self.plot_histogram(data, param_name)
-
-    def plot_histogram(self, data, param_name):
         ax = self.canvas.figure.add_subplot(111)
         ax.clear()
         ax.hist(data, bins="auto", color=style_tokens.plot.histogram_color)
         ax.set_title(f"Posterior distribution of {param_name}")
         ax.set_xlabel("Value")
         ax.set_ylabel("Number of samples")
+
         self.canvas.draw()
 
 
 class Plot(FigureCanvasQTAgg):
+    """
+    A Plot widget using matplotlib.
+
+    Supports scattering datapoints with y-errors as well as plotting the fitted
+    function. The graph always starts at y=0.
+    """
+
     def __init__(self):
         self.fig = Figure(figsize=(5, 4))
         self.fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.15)
@@ -42,81 +51,87 @@ class Plot(FigureCanvasQTAgg):
         self.y_data_plot = None
 
     def _configure_axis(self):
+        """Helper function that sets labels and sets the lower limit to y=0."""
+
         self.ax.set_xlabel("Depth")
         self.ax.set_ylabel("Luminescence Lx/Tx")
         self.ax.set_ylim(bottom=0)
 
-    def scatter(self, x_data, y_data, y_err_data=None):
-        # if new scatter plot clear everything
+    def _auto_ylim(self, y_data, y_err):
+        """Helper function that sets the limits of y-axis given new data."""
+
+        # set upper limit of the y-axis to show all non-negative data points
+        y_upper_limit = np.nanmax(y_data + y_err) * 1.05
+        # always start at y=0
+        self.ax.set_ylim(bottom=0, top=y_upper_limit)
+
+    def scatter(self, x_data, y_data, y_err_data):
+        """
+        Plot a scatter of data points with error bars.
+
+        Takes numpy arrays for the x-values, y-values, and y-errors, and
+        renders them as a scatter plot with vertical error bars for each point.
+        """
+
+        # clear everything, including the previous fitted function plot
         self.clear()
 
-        # take new scatter data
+        # assign new scatter data
         self.x_data_scatter = x_data
         self.y_data_scatter = y_data
         self.y_err_data_scatter = y_err_data
 
-        # draw scatter
-        self._draw_scatter()
-
-        # adjust limits
+        # adjust axis limits and draw
+        self.ax.errorbar(self.x_data_scatter, self.y_data_scatter,
+            yerr=self.y_err_data_scatter, fmt='o', capsize=4,
+            color=style_tokens.plot.scatter_color)
         self._auto_ylim(y_data, y_err_data)
         self.draw()
 
     def plot(self, x_data, y_data):
-        # clear only axes (not data)
-        self.clear()
+        """
+        Plot a line graph of the given data.
 
-        # re-draw scatter if available
-        if self.x_data_scatter is not None:
-            self._draw_scatter()
+        Takes numpy arrays for the x-values, y-values and plots a line graph.
+        """
 
-        # take new plot data
+        # clear only previous plot, not the scatter
+        self.clear_only_plot()
+
+        # store new plot data
         self.x_data_plot = x_data
         self.y_data_plot = y_data
 
-        # show new plot
+        # adjust axis limits and draw
         self.ax.plot(x_data, y_data, color=style_tokens.plot.plot_color)
-
-        # adjust limits
         self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
         self.draw()
 
-    def _draw_scatter(self):
-        if self.x_data_scatter is not None and self.y_data_scatter is not None:
-            if self.y_err_data_scatter is not None:
-                self.ax.errorbar(self.x_data_scatter, self.y_data_scatter,
-                    yerr=self.y_err_data_scatter, fmt='o', capsize=4,
-                    color=style_tokens.plot.scatter_color)
-            else:
-                self.ax.scatter(self.x_data_scatter, self.y_data_scatter,
-                    color=style_tokens.plot.scatter_color)
-
     def clear(self):
+        """Clears the entire graph."""
+
+        self.x_data_scatter = None
+        self.y_data_scatter = None
+        self.y_err_data_scatter = None
+        self.x_data_plot = None
+        self.y_data_plot = None
+
         self.ax.cla()
         self._configure_axis()
         self.draw()
 
-    def clear_plot(self):
+    def clear_only_plot(self):
+        """Clears only the line graph, not the scatter plot."""
+
         self.clear()
 
         self.x_data_plot = None
         self.y_data_plot = None
 
+        # redraw scatter
         if self.x_data_scatter is not None:
             self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
-            self._draw_scatter()
+            self.scatter(self.x_data_scatter, self.y_data_scatter,
+                self.y_err_data_scatter)
 
         self.draw()
-
-    def _auto_ylim(self, y_data, y_err=None):
-        y_data = np.asarray(y_data)
-        if y_err is not None:
-            y_err = np.asarray(y_err)
-            y_max = np.nanmax(y_data + y_err)
-        else:
-            y_max = np.nanmax(y_data)
-
-        if not np.isfinite(y_max) or y_max <= 0:
-            y_max = 1
-
-        self.ax.set_ylim(bottom=0, top=y_max * 1.05)

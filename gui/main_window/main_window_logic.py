@@ -1,19 +1,19 @@
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
-from PySide6.QtCore import Qt, QObject
-import numpy as np
 from inspect import signature
 
-from ..shared.fit_runner import FitRunner
-from ..shared.style_config import param_names_unicode
+import numpy as np
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
 
-from .read_xlsx import read_xlsx
 from ..calibration_window.calibration_window import CalibrationWindow
+from ..shared.fit_runner import FitRunner
+from ..shared.read_xlsx import read_xlsx
+from ..shared.style_config import param_names_unicode
 
 
 class MainWindowLogic(QObject):
     def __init__(self, main_window, engine):
         super().__init__()
-        self.ui = main_window
+        self.ui = main_window # store main window class to access ui elements
 
         self.MODEL_SELECT_OPTIONS = {
             "Single Exposure": engine.models.expo,
@@ -21,7 +21,7 @@ class MainWindowLogic(QObject):
             "Exposure-Burial-Exposure": engine.models.expo_buri_expo,
             "Exposure-Burial-Exposure-Burial":
                 engine.models.expo_buri_expo_buri,
-            }
+        }
         self.FIT_QUALITY_OPTIONS = {
             "low": engine.fit_quality_settings.low,
             "medium": engine.fit_quality_settings.medium,
@@ -45,18 +45,23 @@ class MainWindowLogic(QObject):
         self.fit_result = None
 
     def load_xlsx(self):
-        """Opens a file dialog to open the data and plots them on the screen."""
+        """Opens a file dialog to open fitting data and plots it."""
 
+        # only allow selecting new data when no fit is running
         if self.fit_runner is not None:
             QMessageBox.warning(self.ui, "Warning",
                 "Wait until the current fit has finished.")
             return
 
+        # open qt file dialog
         filename, _ = QFileDialog.getOpenFileName(self.ui, "Open .xlsx File",
             "", "Excel Files (*.xlsx);;All Files (*)")
         if filename:
+            # read xlsx data and convert it to numpy arrays
             self.x_data, self.y_data, self.y_err_std \
                 = read_xlsx(filename)
+            
+            # clear plot and scatter the new datapoints
             self.ui.plot_widget.clear()
             self.ui.plot_widget.scatter(self.x_data, self.y_data,
                 y_err_data=self.y_err_std)
@@ -64,6 +69,7 @@ class MainWindowLogic(QObject):
     def open_calibration_window(self):
         """Opens the calibration window."""
 
+        # only allow opening the calibration window when no fit is running
         if self.fit_runner is not None:
             QMessageBox.warning(self.ui, "Warning",
                 "Wait until the current fit has finished.")
@@ -71,13 +77,17 @@ class MainWindowLogic(QObject):
 
         if self.ui.calibration_window is None \
             or not self.ui.calibration_window.isVisible():
+            # create new calibration window if it's not opened already
             self.ui.calibration_window = CalibrationWindow()
             self.ui.calibration_window.show()
         else:
+            # don't create a new window if it already exists
             self.ui.calibration_window.raise_()
             self.ui.calibration_window.activateWindow()
 
     def run_fit(self, fit_type):
+        """Run fit function that is connected to the run fit buttons."""
+
         if self.fit_runner is not None:
             QMessageBox.warning(self.ui, "Warning", "A fit is already running.")
             return
@@ -89,16 +99,14 @@ class MainWindowLogic(QObject):
         # input table
         input_parameter_table = self.ui.input_parameter_table
         input_parameter_names = input_parameter_table.INPUT_PARAMETER_NAMES
-
         self.known_params = {
             param_name: input_parameter_table.get_value(param_name) \
             for param_name in input_parameter_names}
-
         self.known_params_err_std = {
             param_name: input_parameter_table.get_std(param_name) \
             for param_name in input_parameter_names}
 
-        # decrement order by 1, see models.py for documentation
+        # decrement order by 1, see fitting engine models
         self.known_params["order"] -= 1.0
 
         # get the fit quality and model function from the ui combo boxes
@@ -112,7 +120,7 @@ class MainWindowLogic(QObject):
 
         # filter known_params and known_params_err_std to only hold arguments
         # of the selected model function
-        # (e.g. F is not necessary for single exposure)
+        # (F is not necessary for single exposure, for example)
         self.known_params = {
             param_name: value for param_name, value \
             in self.known_params.items() if param_name in model_arguments}
@@ -151,15 +159,14 @@ class MainWindowLogic(QObject):
         free_params = [param_name for param_name in model_arguments \
             if param_name not in self.known_params.keys()]
 
-        # get bounds for the free parameters
-        # (needed for the global initial guess finder)
+        # get bounds for the free parameters (needed initial guess finder)
         bounds = {param_name: value for param_name, value \
             in self.engine.param_bounds.val.asdict().items() \
             if param_name in free_params}
 
-        # clear result table and plot
+        # clear result table and previous fitted function
         self.ui.result_table.clear()
-        self.ui.plot_widget.clear_plot()
+        self.ui.plot_widget.clear_only_plot()
 
         # run fit 
         self.fit_runner = FitRunner(self.engine, self.x_data,
@@ -181,73 +188,66 @@ class MainWindowLogic(QObject):
         self.fit_runner.start()
 
     def on_fit_finished(self):
+        """Function that is called when a fit finishes."""
+
+        # hide progres bar and status label
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
 
+        # save fit result
         self.fit_result = self.fit_runner.result
 
+        # check that the fit results are reliable
         if not self.fit_result.success:
             QMessageBox.warning(self.ui, "Warning",
                 "There have been problems with the fit. The results may be "
                 "faulty. Try increasing the fit quality, or improving the "
                 "accuracy of the known parameters.")
-        print(self.fit_result)
 
+        print(self.fit_result) # debug
+
+        # set fit parameter results in the result table
         for param_name, value in self.fit_result.best_fit.items():
             self.ui.result_table.set_result(param_name, value)
 
+        # set confidedence intervals in the result table (only after mcmc fit)
         if self.fit_result.confidence_interval is not None:
             for param_name, interval \
                 in self.fit_result.confidence_interval.items():
                 self.ui.result_table.set_confidence_interval(
                     param_name, interval)
 
+        # set event ages and posterior samples (only after mcmc fit)
         if self.fit_result.samples is not None:
+            # calculate event ages from posterior samples
             event_ages, event_ages_samples = self.engine.get_event_ages(
                 list(self.fit_result.best_fit.keys()), self.fit_result.samples)
 
+            # set event ages with confidence intervals
             for param_name, (value, interval) in event_ages.items():
                 self.ui.result_table.set_result(param_name, value)
                 self.ui.result_table.set_confidence_interval(param_name,
                     interval)
 
+            # connect posterior samples to be displayed in a historgam
             all_samples = self.fit_result.samples | event_ages_samples
             for param_name, samples in all_samples.items():
                 self.ui.result_table.set_posterior_samples(param_name, samples)
 
-        # plot fitted curve
+        # plot fit curve
         x_data_fit = np.linspace(np.min(self.x_data), np.max(self.x_data), 200)
         y_data_fit = self.model_function(x_data_fit, **self.known_params,
             **self.fit_result.best_fit)
         self.ui.plot_widget.plot(x_data_fit, y_data_fit)
+
     def on_fit_failed(self, message):
+        """Function that is called when a fit raises an error."""
+
+        # hide progress bar
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
 
-        # Create a custom QMessageBox
-        msg_box = QMessageBox(self.ui)
-        msg_box.setIcon(QMessageBox.Critical)
-        msg_box.setWindowTitle("Error")
-        msg_box.setText("Fit crashed. This should not happen. Could be caused by bad input "
-                        "data or bad input parameters.")
-        msg_box.setInformativeText("Full error message:")
-
-        # Create a scrollable text area for the long message
-        text_edit = QTextEdit()
-        text_edit.setPlainText(message)
-        text_edit.setReadOnly(True)
-        text_edit.setMinimumSize(400, 200)  # ensures it's visible enough
-        text_edit.setMaximumSize(800, 400)  # prevents overflow
-
-        msg_box.layout().addWidget(text_edit, 1, 0, 1, msg_box.layout().columnCount())
-
-        msg_box.exec()
-
-    def on_fit_failed(self, message):
-        self.ui.progress_bar.setVisible(False)
-        self.ui.status_label.setVisible(False)
-
-        # custom message box
+        # create message box
         msg_box = QMessageBox(self.ui)
         msg_box.setIcon(QMessageBox.Critical)
         msg_box.setWindowTitle("Error")
@@ -255,15 +255,19 @@ class MainWindowLogic(QObject):
             "by bad input data or bad input parameters.")
         msg_box.setInformativeText("Full error message:")
 
-        # create a scrollable text area
+        # create a scrollable text area for the traceback message
         text_edit = QTextEdit()
         text_edit.setPlainText(message)
         text_edit.setReadOnly(True)
-        text_edit.setMaximumSize(800, 400)  # prevent overflow
-
-        msg_box.layout().addWidget(text_edit, 2, 0, 1,
+        text_edit.setMinimumSize(400, 200)
+        text_edit.setMaximumSize(800, 400)
+        msg_box.layout().addWidget(text_edit, 1, 0, 1,
             msg_box.layout().columnCount())
+
         msg_box.exec()
 
+
     def clear_fit_runner(self):
+        """Destroys the current fit runner."""
+
         self.fit_runner = None

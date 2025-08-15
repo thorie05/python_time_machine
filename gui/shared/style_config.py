@@ -1,8 +1,10 @@
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import asdict, dataclass, field, fields
 
 
 @dataclass(frozen=True)
 class ParamNamesUnicode:
+    """Holds unicode names of fit and result parameters."""
+
     order: str = "order"
     f: str = "F = Ḋ / D₀"
     sigma_phi: str \
@@ -35,6 +37,64 @@ colors = Colors()
 
 
 @dataclass
+class Button:
+    background_color: str = colors.GRAY3
+    background_color_hover: str = colors.GRAY2
+    background_color_pressed: str = colors.GRAY1
+    border_color: str = colors.GRAY1
+    border_width: int = 1 # px
+    horizontal_padding: int = 6 # px
+    vertical_padding: int = 6 # px
+
+
+@dataclass
+class ComboBox:
+    background_color: str = colors.WHITE
+    selection_color: str = colors.BLACK
+
+
+@dataclass
+class Headline:
+    font_size: int = 20 # px
+    font_weight: str = "bold"
+
+
+@dataclass
+class MainWindow:
+    window_title: str = "Python Time Machine"
+    background_color: str = colors.WHITE
+    outer_margin: int = 30 # px
+    outer_margin_lower: int = 0 # px
+    default_width: int = 1200 # px
+    default_height: int = 800 # px
+    inner_window_spacing: int = 10 # px
+    top_row_spacing: int = 20 # px
+    bottom_row_spacing: int = 20 # px
+    button_column_top_margin: int = 50 # px
+
+
+@dataclass
+class Plot:
+    minimum_height: int = 400 # px
+    scatter_color: str = colors.PLT_DEFAULT_BLUE
+    plot_color: str = colors.PLT_DEFAULT_ORANGE
+    histogram_color: str = colors.PLT_DEFAULT_BLUE
+
+
+@dataclass
+class ProgressBar:
+    # border
+    border_color: str = colors.GRAY1
+    border_width: int = 1  # px
+    border_radius: int = 0  # px
+
+    background_color: str = colors.GRAY4
+    chunk_color: str = colors.PLT_DEFAULT_BLUE
+    chunk_radius: int = 0  # px
+    height: int = 5 # px
+
+
+@dataclass
 class Table:
     border_color: str = colors.GRAY1
     border_width: int = 1 # px
@@ -52,64 +112,16 @@ class Table:
 
 
 @dataclass
-class MainWindow:
-    background_color: str = colors.WHITE
-    outer_margin: int = 30 # px
-    outer_margin_lower: int = 0 # px
-    default_width: int = 1200 # px
-    default_height: int = 800 # px
-    inner_window_spacing: int = 10 # px
-
-
-@dataclass
-class ComboBox:
-    background_color: str = colors.WHITE
-    selection_color: str = colors.BLACK
-
-
-@dataclass
-class Headline:
-    font_size: int = 20 # px
-    font_weight: str = "bold"
-
-
-@dataclass
-class Button:
-    background_color: str = colors.GRAY3
-    background_color_hover: str = colors.GRAY2
-    background_color_pressed: str = colors.GRAY1
-    border_color: str = colors.GRAY1
-    border_width: int = 1 # px
-    horizontal_padding: int = 6 # px
-    vertical_padding: int = 6 # px
-
-
-@dataclass
-class ProgressBar:
-    border_color: str = colors.GRAY1
-    border_width: int = 1  # px
-    border_radius: int = 0  # px
-    background_color: str = colors.GRAY4
-    chunk_color: str = colors.PLT_DEFAULT_BLUE
-    chunk_radius: int = 0  # px
-
-
-@dataclass
-class Plot:
-    scatter_color: str = colors.PLT_DEFAULT_BLUE
-    plot_color: str = colors.PLT_DEFAULT_ORANGE
-    histogram_color: str = colors.PLT_DEFAULT_BLUE
-
-
-@dataclass
 class StyleTokens:
-    table: Table = field(default_factory=Table)
-    main_window: MainWindow = field(default_factory=MainWindow)
-    headline: Headline = field(default_factory=Headline)
+    """Holds different dataclasses with style tokens."""
+
     button: Button = field(default_factory=Button)
-    progress_bar: ProgressBar = field(default_factory=ProgressBar)
-    plot: Plot = field(default_factory=Plot)
     combo_box: ComboBox = field(default_factory=ComboBox)
+    headline: Headline = field(default_factory=Headline)
+    main_window: MainWindow = field(default_factory=MainWindow)
+    plot: Plot = field(default_factory=Plot)
+    progress_bar: ProgressBar = field(default_factory=ProgressBar)
+    table: Table = field(default_factory=Table)
 
     def __iter__(self):
         for f in fields(self):
@@ -119,7 +131,9 @@ class StyleTokens:
 param_names_unicode = ParamNamesUnicode()
 style_tokens = StyleTokens()
 
-# dict mapping names with class name to values (e.g. MainWindow.default_width)
+# dict mapping variable names with class name to values
+# (e.g. MainWindow.default_width)
+# used to fill out the placeholders in style.qss
 flat_style_tokens_dict = {}
 for outer in fields(style_tokens):
     inst = getattr(style_tokens, outer.name)

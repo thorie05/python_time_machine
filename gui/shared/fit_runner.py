@@ -3,14 +3,19 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 
 class FitRunner(QObject):
-    status   = Signal(str)
+    """Fit runner object running all fits."""
+
+    status   = Signal(str) # current status signal displayed in the ui
     finished = Signal()
     failed   = Signal(str)
 
     def __init__(self, engine, x_data, y_data, y_err_std, model_function,
         known_params, bounds, fit_type, fit_quality, known_params_err_std=None):
         super().__init__()
+
         self.engine = engine
+
+        # input data
         self.x_data = x_data
         self.y_data = y_data
         self.y_err_std  = y_err_std
@@ -20,19 +25,18 @@ class FitRunner(QObject):
         self.fit_type = fit_type
         self.known_params_err_std = known_params_err_std
         self.fit_quality = fit_quality
+
+        # fit result
         self.result = None
 
-        # set up thread
+        # set up threads
         self._thread = QThread()
         self.moveToThread(self._thread)
-
-        # thread -> worker
         self._thread.started.connect(self.doWork)
-        # worker -> thread teardown
         self.finished.connect(self._thread.quit)
         self.failed.connect(self._thread.quit)
 
-        # clean up both objects when done
+        # clean up objects when done
         self._thread.finished.connect(self._thread.deleteLater)
         self.finished.connect(self.deleteLater)
         self.failed.connect(self.deleteLater)
