@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
 
 from ..calibration_window.calibration_window import CalibrationWindow
 from ..shared.fit_runner import FitRunner
-from ..shared.read_xlsx import read_xlsx
+from ..shared.read_write_xlsx import read_xlsx, write_xlsx
 from ..shared.style_config import param_names_unicode
 
 
@@ -22,6 +22,10 @@ class MainWindowLogic(QObject):
             "Exposure-Burial-Exposure-Burial":
                 engine.models.expo_buri_expo_buri,
         }
+        self.FIT_TYPE_OPTIONS = {
+            "Least-squares fit": "easy",
+            "MCMC fit": "mcmc"
+        }
         self.FIT_QUALITY_OPTIONS = {
             "low": engine.fit_quality_settings.low,
             "medium": engine.fit_quality_settings.medium,
@@ -36,35 +40,17 @@ class MainWindowLogic(QObject):
         self.x_data = None
         self.y_data = None
         self.y_err_std = None
-
         self.known_params = None
         self.known_params_err_std = None
+
         self.model_function = None
+        self.fit_type = None
+        self.fit_quality = None 
 
-        # fit result
+        # fit results
+        self.initial_guess = None
+        self.bootstrap_estimation = None
         self.fit_result = None
-
-    def load_xlsx(self):
-        """Opens a file dialog to open fitting data and plots it."""
-
-        # only allow selecting new data when no fit is running
-        if self.fit_runner is not None:
-            QMessageBox.warning(self.ui, "Warning",
-                "Wait until the current fit has finished.")
-            return
-
-        # open qt file dialog
-        filename, _ = QFileDialog.getOpenFileName(self.ui, "Open .xlsx File",
-            "", "Excel Files (*.xlsx);;All Files (*)")
-        if filename:
-            # read xlsx data and convert it to numpy arrays
-            self.x_data, self.y_data, self.y_err_std \
-                = read_xlsx(filename)
-            
-            # clear plot and scatter the new datapoints
-            self.ui.plot_widget.clear()
-            self.ui.plot_widget.scatter(self.x_data, self.y_data,
-                y_err_data=self.y_err_std)
 
     def open_calibration_window(self):
         """Opens the calibration window."""
@@ -85,7 +71,47 @@ class MainWindowLogic(QObject):
             self.ui.calibration_window.raise_()
             self.ui.calibration_window.activateWindow()
 
-    def run_fit(self, fit_type):
+    def load_xlsx(self):
+        """Opens a file dialog to open fitting data and plots it."""
+
+        # only allow selecting new data when no fit is running
+        if self.fit_runner is not None:
+            QMessageBox.warning(self.ui, "Warning",
+                "Wait until the current fit has finished.")
+            return
+
+        # open qt file dialog
+        filename, _ = QFileDialog.getOpenFileName(self.ui, "Open .xlsx File",
+            "", "Excel Files (*.xlsx);;All Files (*)")
+        if filename:
+            # read xlsx data
+            sheet_data = read_xlsx(filename)
+            if len(sheet_data.keys()) != 1:
+                QMessageBox.warning(self.ui, "Warning", ".xlsx file must "
+                "consist of exactly one data sheet.")
+                return
+
+            # check if shapes match
+            (self.x_data, self.y_data, self.y_err_std), = sheet_data.values()
+            if not (self.x_data.shape == self.y_data.shape \
+                == self.y_err_std.shape):
+                QMessageBox.warning(self.ui, "Warning", ".xlsx sheet must "
+                "consist of three columns of the same height (Depth, Lx/Tx "
+                "and Error).")
+                return
+
+            # hide export fit button
+            self.ui.export_button.setVisible(False)
+
+            # clear result table and plot
+            self.ui.result_table.clear()
+            self.ui.plot_widget.clear()
+
+            # scatter the new datapoints
+            self.ui.plot_widget.scatter(self.x_data, self.y_data,
+                y_err_data=self.y_err_std)
+
+    def run_fit(self):
         """Run fit function that is connected to the run fit buttons."""
 
         if self.fit_runner is not None:
@@ -109,11 +135,13 @@ class MainWindowLogic(QObject):
         # decrement order by 1, see fitting engine models
         self.known_params["order"] -= 1.0
 
-        # get the fit quality and model function from the ui combo boxes
-        fit_quality_select = self.ui.quality_select.get_text()
+        # get the fit type, quality and model function from the ui combo boxes
+        fit_type_select = self.ui.fit_type_select.get_text()
+        self.fit_type = self.FIT_TYPE_OPTIONS[fit_type_select]
+        fit_quality_select = self.ui.fit_quality_select.get_text()
         fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
-        model_function_select = self.ui.model_select.get_text()
-        self.model_function = self.MODEL_SELECT_OPTIONS[model_function_select]
+        model_select = self.ui.model_select.get_text()
+        self.model_function = self.MODEL_SELECT_OPTIONS[model_select]
 
         # retrieve model function arguments
         model_arguments = signature(self.model_function).parameters
@@ -148,7 +176,7 @@ class MainWindowLogic(QObject):
                 return
 
             # standard deviations are only relevant for the mcmc fit
-            if fit_type == "mcmc":
+            if self.fit_type == "mcmc":
                 if not (lower_std <= value_std <= upper_std):
                     QMessageBox.warning(self.ui, "Warning",
                         f"Standard deviation of {param_name_unicode} must lie "
@@ -164,6 +192,9 @@ class MainWindowLogic(QObject):
             in self.engine.param_bounds.val.asdict().items() \
             if param_name in free_params}
 
+        # hide export fit button
+        self.ui.export_button.setVisible(False)
+
         # clear result table and previous fitted function
         self.ui.result_table.clear()
         self.ui.plot_widget.clear_only_plot()
@@ -171,7 +202,8 @@ class MainWindowLogic(QObject):
         # run fit 
         self.fit_runner = FitRunner(self.engine, self.x_data,
             self.y_data, self.y_err_std, self.model_function, self.known_params,
-            bounds, fit_type, known_params_err_std=self.known_params_err_std,
+            bounds, self.fit_type,
+            known_params_err_std=self.known_params_err_std,
             fit_quality=fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
@@ -190,12 +222,8 @@ class MainWindowLogic(QObject):
     def on_fit_finished(self):
         """Function that is called when a fit finishes."""
 
-        # hide progres bar and status label
-        self.ui.progress_bar.setVisible(False)
-        self.ui.status_label.setVisible(False)
-
         # save fit result
-        self.fit_result = self.fit_runner.result
+        self.fit_result = self.fit_runner.fit_result
 
         # check that the fit results are reliable
         if not self.fit_result.success:
@@ -203,6 +231,14 @@ class MainWindowLogic(QObject):
                 "There have been problems with the fit. The results may be "
                 "faulty. Try increasing the fit quality, or improving the "
                 "accuracy of the known parameters.")
+
+        # hide progres bar and status label
+        self.ui.progress_bar.setVisible(False)
+        self.ui.status_label.setVisible(False)
+
+        # show export fit button only on for mcmc fit
+        if self.fit_result.samples:
+            self.ui.export_button.setVisible(True)
 
         print(self.fit_result) # debug
 
@@ -266,8 +302,18 @@ class MainWindowLogic(QObject):
 
         msg_box.exec()
 
-
     def clear_fit_runner(self):
         """Destroys the current fit runner."""
 
         self.fit_runner = None
+
+    def export_mcmc_fit(self):
+        path, _ = QFileDialog.getSaveFileName(self.ui,
+            caption="Save fit result as Excel file", dir="",
+            filter="Excel Workbook (*.xlsx)")
+        if not path:
+            return None
+        if not path.endswith(".xlsx"):
+            path += ".xlsx"
+
+        write_xlsx(path)

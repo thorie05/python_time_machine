@@ -1,6 +1,6 @@
 import numpy as np
 
-# All time variables are interpreted as consecutive timespans, not timestamps.
+# All time variables are interpreted as consecutive timespans, not event ages.
 # For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_2 = 10 means:
 # Starting from full saturation, followed by 1000 time units of exposure,
 # followed by 100 time units of burial, followed by 10 time units of exposure.

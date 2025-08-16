@@ -57,7 +57,7 @@ class ClickableContentCell(BaseCell):
             self.setTextInteractionFlags(Qt.NoTextInteraction)
             self.setCursor(Qt.ArrowCursor)
         elif self._on_double_click is not None:
-            self.setTextInteractionFlags(Qt.NoTextInteraction)
+            self.setTextInteractionFlags(Qt.TextSelectableByMouse)
             self.setCursor(Qt.PointingHandCursor)
         else:
             self.setTextInteractionFlags(Qt.TextSelectableByMouse)

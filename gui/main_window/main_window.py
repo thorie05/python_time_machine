@@ -1,5 +1,3 @@
-from functools import partial
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
 
@@ -27,17 +25,24 @@ class MainWindow(QWidget):
 
         # functional widgets are stored as attributes for later access
         self.calibration_window = None
+        self.fit_details_window = None
+
         self.input_parameter_table = InputParameterTable(self.logic.engine)
         self.result_table = ResultTable()
         self.plot_widget = Plot()
-        self.calibration_button = Button("Calibrate")
-        self.quality_select = ComboBox("Select fit quality:",
-            list(self.logic.FIT_QUALITY_OPTIONS.keys()))
+
         self.model_select = ComboBox("Select model:",
             list(self.logic.MODEL_SELECT_OPTIONS.keys()))
+        self.fit_quality_select = ComboBox("Select fit quality:",
+            list(self.logic.FIT_QUALITY_OPTIONS.keys()))
+        self.fit_type_select = ComboBox("Select fit type:",
+            self.logic.FIT_TYPE_OPTIONS)
+
+        self.calibration_button = Button("Calibrate")
         self.load_button = Button("Choose .xlsx data")
-        self.run_mcmc_button = Button("Run MCMC fit")
-        self.run_easy_button = Button("Run least-squares fit")
+        self.run_fit_button = Button("Run fit")
+        self.export_button = Button("Export MCMC fit results")
+
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
 
@@ -100,36 +105,40 @@ class MainWindow(QWidget):
 
         # create button column containing all buttons and combo boxes
         button_column = QVBoxLayout()
-        button_column.setSpacing(style_tokens.main_window.bottom_row_spacing) 
+        button_column.setSpacing(style_tokens.main_window.button_column_spacing)
         button_column.setContentsMargins(
             0, style_tokens.main_window.button_column_top_margin, 0, 0)
 
         # calibration button
         self.calibration_button.clicked.connect(
             self.logic.open_calibration_window)
-        self.calibration_button.setFocusPolicy(Qt.NoFocus)
         button_column.addWidget(self.calibration_button)
 
         # load .xslx button
         self.load_button.clicked.connect(self.logic.load_xlsx)
-        self.load_button.setFocusPolicy(Qt.NoFocus)
         button_column.addWidget(self.load_button)
 
-        # combo boxes for model and fit quality selection
+        # combo boxes for model, fit type and quality selection
         button_column.addWidget(self.model_select)
-        button_column.addWidget(self.quality_select)
-        self.quality_select.combo_box.setCurrentIndex(1) # medium default value
+        button_column.addWidget(self.fit_type_select)
+        # set mcmc as default fit type
+        self.fit_type_select.combo_box.setCurrentIndex(1)
+        button_column.addWidget(self.fit_quality_select)
+        # set medium as default value for fit quality
+        self.fit_quality_select.combo_box.setCurrentIndex(1)
 
-        # run mcmc and least square fit buttons
-        self.run_mcmc_button.clicked.connect(partial(self.logic.run_fit,
-            "mcmc"))
-        self.run_easy_button.clicked.connect(partial(self.logic.run_fit,
-            "easy"))
-        fit_button_row = QHBoxLayout()
-        fit_button_row.setAlignment(Qt.AlignLeft)
-        fit_button_row.addWidget(self.run_mcmc_button)
-        fit_button_row.addWidget(self.run_easy_button)
-        button_column.addLayout(fit_button_row)
+        # run fit and export button row 
+        run_button_row = QHBoxLayout()
+        run_button_row.setAlignment(Qt.AlignLeft)
+
+        run_button_row.addWidget(self.run_fit_button)
+        self.run_fit_button.clicked.connect(self.logic.run_fit)
+
+        run_button_row.addWidget(self.export_button)
+        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
+        self.export_button.setVisible(False)
+
+        button_column.addLayout(run_button_row)
 
         # loading bar and label in a tight sub-layout
         progress_layout = QVBoxLayout()

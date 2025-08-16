@@ -11,8 +11,9 @@ class HistogramWindow(QDialog):
 
     def __init__(self, data, param_name):
         super().__init__()
+        self.setObjectName("HistogramWindow")
 
-        self.setWindowTitle("Histogram")
+        self.setWindowTitle(style_tokens.histogram_window.window_title)
 
         layout = QVBoxLayout()
         self.canvas = FigureCanvasQTAgg(Figure())
@@ -123,7 +124,8 @@ class Plot(FigureCanvasQTAgg):
     def clear_only_plot(self):
         """Clears only the line graph, not the scatter plot."""
 
-        self.clear()
+        self.ax.cla()
+        self._configure_axis()
 
         self.x_data_plot = None
         self.y_data_plot = None

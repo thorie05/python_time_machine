@@ -8,10 +8,10 @@ import logging
 from .fit_result import FitResult
 
 
-def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
-    free_params_priors, y_err_std, known_params_err_std=None,
-    only_positive=False, target_accept=0.95, chains=4,
-    cores=4, verbose=False, seed=None):
+def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
+    known_params, free_params_priors, known_params_err_std=None,
+    only_positive=False, target_accept=0.95, chains=4, cores=4, seed=None,
+    verbose=False):
     """
     A fitting function that uses the MCMC method for calculating uncertainties.
 
@@ -28,6 +28,7 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         tune (int): Number of tuning steps.
         x_data (numpy.ndarray): The x-values of the data points.
         y_data (numpy.ndarray): The y-values of the data points.
+        y_err_std (numpy.ndarray): The standard deviation of the y-values.
         model_function (callable): The model function to be used for fitting.
         known_params (dict(str: float or numpy.ndarray)): Dict mapping the known
             parameter names to their known values. If an array is passed it
@@ -36,7 +37,6 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
             free parameter names to a tuple containing the most likely value
             e.g. initial guess along with the expected standard deviation.
             Serves as a prior for the MCMC model.
-        y_err_std (numpy.ndarray): The standard deviation of the y-values.
         known_params_err_std (dict(str: float), optional): An optional dict
             mapping the known parameter names to standard deviation of their
             uncertain known values.
@@ -46,8 +46,8 @@ def bayesian_fit(draws, tune, x_data, y_data, model_function, known_params,
         target_accept (float): Optional PyMC target_accept argument.
         chains (int, optional): Optional number MCMC chains.
         cores (int, optional): Optional number of cores to use.
-        verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
+        verbose (bool, optional): Optional flag controling console output.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.

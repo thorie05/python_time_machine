@@ -60,6 +60,12 @@ class Headline:
 
 
 @dataclass
+class HistogramWindow:
+    window_title: str = "Histogram"
+    background_color: str = colors.WHITE
+
+
+@dataclass
 class MainWindow:
     window_title: str = "Python Time Machine"
     background_color: str = colors.WHITE
@@ -69,13 +75,13 @@ class MainWindow:
     default_height: int = 800 # px
     inner_window_spacing: int = 10 # px
     top_row_spacing: int = 20 # px
-    bottom_row_spacing: int = 20 # px
     button_column_top_margin: int = 50 # px
+    button_column_spacing: int = 16 # px
 
 
 @dataclass
 class Plot:
-    minimum_height: int = 400 # px
+    minimum_height: int = 500 # px
     scatter_color: str = colors.PLT_DEFAULT_BLUE
     plot_color: str = colors.PLT_DEFAULT_ORANGE
     histogram_color: str = colors.PLT_DEFAULT_BLUE
@@ -118,6 +124,7 @@ class StyleTokens:
     button: Button = field(default_factory=Button)
     combo_box: ComboBox = field(default_factory=ComboBox)
     headline: Headline = field(default_factory=Headline)
+    histogram_window: HistogramWindow = field(default_factory=HistogramWindow)
     main_window: MainWindow = field(default_factory=MainWindow)
     plot: Plot = field(default_factory=Plot)
     progress_bar: ProgressBar = field(default_factory=ProgressBar)

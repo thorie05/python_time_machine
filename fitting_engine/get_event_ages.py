@@ -2,19 +2,19 @@ import numpy as np
 
 
 def get_event_ages(param_names, posterior_samples):
-    """A function that calculates the total elapsed times since events.
+    """A function that calculates event ages.
 
     Takes the names of the time span fit parameters from "oldest" to "youngest"
     (t_exposure_1, t_burial_1, t_exposure_2, ...) and calculates the total
     elapsed time since the beginning of each of these time spans. The first
     event in this case would be the first exposure, the second event the
-    subsequent burial, etc. The fit functions only yield time span results,
-    not ages that might be of even more interest. The ages are approximately
-    equal to the sum of the best fits, but not exactly, especially for the
-    confidence ranges. To obtain correct results, only fit results coming from
-    the same sample need to be added, as done in this function. The leading t_
-    is removed from the given parameter names and instead _age is appended in
-    in the result dicts.
+    subsequent burial, etc. The normal fitting with the functions in models.py
+    only yield time span results, not ages. The ages are approximately equal to
+    the sum of the best fits, but not exactly, especially for the confidence
+    ranges. To obtain correct results, only fit results coming from the same
+    sample need to be added, as done in this function. The leading t_ is removed
+    from the given parameter names and instead _age is appended in in the result
+    dicts.
 
     Args:
         param_names (List(str)): A list of the parameter names sorted from

@@ -7,7 +7,7 @@ from .fit_quality_settings import fit_quality_settings
 def full_fit(x_data, y_data, y_err_std, model_function, known_params,
     known_params_err_std=None, free_params_priors=None, bounds=None,
     fit_quality=fit_quality_settings.medium, only_positive=False, cores=4,
-    verbose=False, seed=None, status_callback=None):
+    seed=None, status_callback=None, verbose=False):
     """Full fit function that combines bootstrap and bayesian fit.
     
     A wrapper function for the bayesian fit, that estimates free parameter
@@ -43,11 +43,11 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         only_positive (bool, optional): Optional flag that controls if the fit
             parameters are allowed to be only positive.
         cores (int, optional): Optional number of cores to use.
-        verbose (bool, optional): Optional flag controling console output.
         seed (int, optional): Optional random number generator seed.
         status_callback (callable, optional): A callable that receives
             human-readable status updates at key points in the fitting pipeline.
             Can be used to update UI text or logs.
+        verbose (bool, optional): Optional flag controling console output.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
@@ -103,10 +103,10 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         status_callback("Running MCMC Bayesian fit...")
 
     # perform bayesian fit
-    bayesian_fit_result = bayesian_fit(draws, tune, x_data, y_data,
-        model_function, known_params, free_params_priors, y_err_std,
+    bayesian_fit_result = bayesian_fit(draws, tune, x_data, y_data, y_err_std,
+        model_function, known_params, free_params_priors,
         known_params_err_std=known_params_err_std, only_positive=only_positive,
-        target_accept=target_accept, verbose=verbose, seed=seed)
+        target_accept=target_accept, seed=seed, verbose=verbose)
 
     # return the result object containing posterior samples and fit statistics
-    return bayesian_fit_result
+    return initial_guess, bootstrap_fit_result, bayesian_fit_result

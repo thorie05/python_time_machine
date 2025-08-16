@@ -34,7 +34,6 @@ class ComboBox(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
-        layout.setSizeConstraint(QLayout.SetFixedSize)
 
         self.label = QLabel(label_text)
         self.combo_box = QComboBox()
