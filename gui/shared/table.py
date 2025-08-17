@@ -1,5 +1,12 @@
-from PySide6.QtWidgets import QSizePolicy, QWidget, QLabel,QFrame, \
-    QGridLayout, QLineEdit
+from PySide6.QtWidgets import (
+    QSizePolicy,
+    QWidget,
+    QLabel,
+    QFrame,
+    QGridLayout,
+    QLineEdit,
+    QSpacerItem
+)
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtCore import Qt
 
@@ -25,6 +32,12 @@ class IndexCell(BaseCell):
     def __init__(self, text=""):
         super().__init__(text)
         self.setObjectName("IndexCell")
+
+
+class InvisibleCell(QLabel):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("InvisibleCell")
 
 
 class ClickableContentCell(BaseCell):
@@ -85,38 +98,59 @@ class InputCell(QLineEdit):
 class Table(QWidget):
     """Standard table widget."""
 
-    def __init__(self, table_layout):
+    def __init__(self, table_layout, ghost_rows=0):
         super().__init__()
 
         self.table_layout = table_layout
+        self.ghost_rows = ghost_rows
 
         self.grid = QGridLayout()
         self.grid.setSpacing(0)
         self.grid.setContentsMargins(0, 0, 0, 0)
 
-        for row_index, row in enumerate(self.table_layout):
-            for col_index, cell in enumerate(row):
-                self.grid.addWidget(cell, row_index, col_index)
+        self.table_frame = QFrame()
+        self.table_frame.setObjectName("TableFrame")
+        self.table_frame.setFrameShape(QFrame.Box)
 
-        for row in range(self.grid.rowCount()):
-            self.grid.setRowStretch(row, 1)
+        self.frame_layout = QGridLayout(self.table_frame)
+        self.frame_layout.addLayout(self.grid, 0, 0)
+        self.frame_layout.setContentsMargins(0, 0, 0, 0)
 
-        for col in range(self.grid.columnCount()):
-            self.grid.setColumnStretch(col, 1)
+        self.main_layout = QGridLayout(self)
+        self.main_layout.addWidget(self.table_frame, 0, 0)
+        self.main_layout.setContentsMargins(5, 0, 5, 0)
 
-        table_frame = QFrame()
-        table_frame.setObjectName("TableFrame")
-        table_frame.setFrameShape(QFrame.Box)
-
-        frame_layout = QGridLayout(table_frame)
-        frame_layout.addLayout(self.grid, 0, 0)
-        frame_layout.setContentsMargins(0, 0, 0, 0)
-
-        main_layout = QGridLayout(self)
-        main_layout.addWidget(table_frame, 0, 0)
-        main_layout.setContentsMargins(5, 0, 5, 0)
+        self.update_layout()
 
     def set_cell_text(self, col, row, text):
         label = self.table_layout[row][col]
         new_text = text if text is not None else ""
         label.setText(new_text)
+
+    def _clear_grid(self):
+        while self.grid.count():
+            item = self.grid.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+
+    def update_layout(self):
+        self._clear_grid()
+
+        for r, row in enumerate(self.table_layout):
+            for c, cell in enumerate(row):
+                self.grid.addWidget(cell, r, c)
+
+        # clear old ghost spacer(s) under the frame
+        while self.main_layout.count() > 1:
+            self.main_layout.takeAt(1)
+
+        # add invisible ghost space outside the framed grid
+        if self.ghost_rows > 0:
+            self.main_layout.addItem(
+                QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 1, 0
+            )
+
+        # distribute space as if there were visible_rows + ghost_rows
+        self.main_layout.setRowStretch(0, len(self.table_layout))
+        self.main_layout.setRowStretch(1, max(0, self.ghost_rows))

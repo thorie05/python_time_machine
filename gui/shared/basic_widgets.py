@@ -2,10 +2,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QLabel,
-    QLayout,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QSpacerItem,
+    QTextEdit,
     QWidget,
     QVBoxLayout,
 )
@@ -57,6 +59,23 @@ class Headline(QLabel):
 
         self.setContentsMargins(5, 0, 0, 0)
         self.setAlignment(Qt.AlignLeft)
+
+
+class MessageBoxFitCrash(QMessageBox):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.setIcon(QMessageBox.Critical)
+        self.setWindowTitle("Error")
+        self.setText("Fit crashed. This should not happen. Could be caused "
+            "by bad input data or bad input parameters.\n\nFull Error Message:")
+
+        # create a scrollable text area for the traceback message
+        text_edit = QTextEdit()
+        text_edit.setPlainText(message)
+        text_edit.setReadOnly(True)
+        text_edit.setMinimumSize(400, 200)
+        text_edit.setMaximumSize(800, 400)
+        self.layout().addWidget(text_edit, 1, 0, 1, self.layout().columnCount())
 
 
 class ProgressBar(QProgressBar):

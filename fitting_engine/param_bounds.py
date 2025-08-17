@@ -18,10 +18,10 @@ class ValBounds:
     f: tuple = (0.000001, 1.0)
     sigma_phi: tuple = (0.000001, 100.0)
     mu: tuple = (0.000001, 100.0)
-    t_exposure_1: tuple = (0.0, 1_000_000.0)
-    t_burial_1: tuple = (0.0, 1_000_000.0)
-    t_exposure_2: tuple = (0.0, 1_000_000.0)
-    t_burial_2: tuple = (0.0, 1_000_000.0)
+    t_exposure_1: tuple = (0.1, 1_000_000.0)
+    t_burial_1: tuple = (0.1, 1_000_000.0)
+    t_exposure_2: tuple = (0.1, 1_000_000.0)
+    t_burial_2: tuple = (0.1, 1_000_000.0)
 
     def asdict(self):
         return asdict(self)

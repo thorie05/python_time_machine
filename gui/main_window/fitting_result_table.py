@@ -4,7 +4,7 @@ from ..shared.style_config import param_names_unicode
 from functools import partial
 
 
-class ResultTable(Table):
+class FittingResultTable(Table):
     """
     Table widget that displays fitting results.
 
@@ -19,13 +19,13 @@ class ResultTable(Table):
             "age_exposure_2", "age_burial_2"]
 
         # dicts mapping parameter names to their table cell widgets
-        self.RESULT_CELLS = {param_name: ClickableContentCell() \
+        self.result_cells = {param_name: ClickableContentCell() \
             for param_name in self.RESULT_PARAMETER_NAMES}
-        self.CONFIDENCE_INTERVAL_CELLS = {param_name: ClickableContentCell() \
+        self.confidence_interval_cells = {param_name: ClickableContentCell() \
             for param_name in self.RESULT_PARAMETER_NAMES}
 
         # 2d layout of the table, row by row
-        self.LAYOUT = [
+        self.table_layout = [
             [
                 HeaderCell("Parameter"),
                 HeaderCell("Result"),
@@ -36,39 +36,39 @@ class ResultTable(Table):
             ],
             [
                 IndexCell(param_names_unicode.t_exposure_1),
-                self.RESULT_CELLS["t_exposure_1"],
-                self.CONFIDENCE_INTERVAL_CELLS["t_exposure_1"],
+                self.result_cells["t_exposure_1"],
+                self.confidence_interval_cells["t_exposure_1"],
                 IndexCell("exposure 1"),
-                self.RESULT_CELLS["age_exposure_1"],
-                self.CONFIDENCE_INTERVAL_CELLS["age_exposure_1"],
+                self.result_cells["age_exposure_1"],
+                self.confidence_interval_cells["age_exposure_1"],
             ],
             [
                 IndexCell(param_names_unicode.t_burial_1),
-                self.RESULT_CELLS["t_burial_1"],
-                self.CONFIDENCE_INTERVAL_CELLS["t_burial_1"],
+                self.result_cells["t_burial_1"],
+                self.confidence_interval_cells["t_burial_1"],
                 IndexCell("burial 1"),
-                self.RESULT_CELLS["age_burial_1"],
-                self.CONFIDENCE_INTERVAL_CELLS["age_burial_1"],
+                self.result_cells["age_burial_1"],
+                self.confidence_interval_cells["age_burial_1"],
             ],
             [
                 IndexCell(param_names_unicode.t_exposure_2),
-                self.RESULT_CELLS["t_exposure_2"],
-                self.CONFIDENCE_INTERVAL_CELLS["t_exposure_2"],
+                self.result_cells["t_exposure_2"],
+                self.confidence_interval_cells["t_exposure_2"],
                 IndexCell("exposure 2"),
-                self.RESULT_CELLS["age_exposure_2"],
-                self.CONFIDENCE_INTERVAL_CELLS["age_exposure_2"],
+                self.result_cells["age_exposure_2"],
+                self.confidence_interval_cells["age_exposure_2"],
             ],
             [
                 IndexCell(param_names_unicode.t_burial_2),
-                self.RESULT_CELLS["t_burial_2"],
-                self.CONFIDENCE_INTERVAL_CELLS["t_burial_2"],
+                self.result_cells["t_burial_2"],
+                self.confidence_interval_cells["t_burial_2"],
                 IndexCell("burial 2"),
-                self.RESULT_CELLS["age_burial_2"],
-                self.CONFIDENCE_INTERVAL_CELLS["age_burial_2"],
+                self.result_cells["age_burial_2"],
+                self.confidence_interval_cells["age_burial_2"],
             ],
         ]
 
-        super().__init__(self.LAYOUT)
+        super().__init__(self.table_layout)
 
         # always round to two digits
         self.ROUND_TO_DIGITS = 2
@@ -82,7 +82,7 @@ class ResultTable(Table):
         label_text = ""
         if value is not None:
             label_text = f"{round(value, self.ROUND_TO_DIGITS)}"
-        self.RESULT_CELLS[param_name].setText(label_text)
+        self.result_cells[param_name].setText(label_text)
 
     def set_confidence_interval(self, param_name, interval):
         """Sets the confidence intervals for a given paramter."""
@@ -94,14 +94,14 @@ class ResultTable(Table):
         if interval is not None:
             label_text = f"{round(interval[0], self.ROUND_TO_DIGITS)} - " \
                 + f"{round(interval[1], self.ROUND_TO_DIGITS)}"
-        self.CONFIDENCE_INTERVAL_CELLS[param_name].setText(label_text)
+        self.confidence_interval_cells[param_name].setText(label_text)
 
     def set_posterior_samples(self, param_name, samples):
         """Sets the posterior samples for a given paramter."""
         #debug:
         print("set samples:", param_name)
 
-        cell = self.RESULT_CELLS[param_name]
+        cell = self.result_cells[param_name]
         if samples is None:
             cell.disconnect_double_click()
         else:
@@ -112,9 +112,9 @@ class ResultTable(Table):
         """Clears all result cells in the table."""
 
         for param_name in self.RESULT_PARAMETER_NAMES:
-            self.RESULT_CELLS[param_name].setText("")
-            self.RESULT_CELLS[param_name].disconnect_double_click()
-            self.CONFIDENCE_INTERVAL_CELLS[param_name].setText("")
+            self.result_cells[param_name].setText("")
+            self.result_cells[param_name].disconnect_double_click()
+            self.confidence_interval_cells[param_name].setText("")
 
     def show_histogram(self, samples, title):
         """Opens a window with a histogram of the posterior samples."""

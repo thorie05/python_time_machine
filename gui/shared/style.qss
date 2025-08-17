@@ -3,6 +3,11 @@ MainWindow {
     background-color: ${MainWindow.background_color};
 }
 
+/* CalibrationWindow */
+CalibrationWindow {
+    background-color: ${CalibrationWindow.background_color};
+}
+
 /* HistogramWindow */
 HistogramWindow {
     background-color: ${HistogramWindow.background_color};

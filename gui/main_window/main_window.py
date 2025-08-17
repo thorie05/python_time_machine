@@ -1,9 +1,16 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QHBoxLayout,
+    QVBoxLayout,
+    QWidget,
+)
 
+from ..calibration_window.calibration_window import CalibrationWindow
 from .input_parameter_table import InputParameterTable
 from .main_window_logic import MainWindowLogic
-from .result_table import ResultTable
+from .fitting_result_table import FittingResultTable
 from ..shared.basic_widgets import Button, ComboBox, Headline, ProgressBar
 from ..shared.plots import Plot
 from ..shared.style_config import style_tokens
@@ -24,11 +31,10 @@ class MainWindow(QWidget):
         self.logic = MainWindowLogic(self, engine)
 
         # functional widgets are stored as attributes for later access
-        self.calibration_window = None
-        self.fit_details_window = None
+        self.calibration_window = CalibrationWindow(engine)
 
         self.input_parameter_table = InputParameterTable(self.logic.engine)
-        self.result_table = ResultTable()
+        self.result_table = FittingResultTable()
         self.plot_widget = Plot()
 
         self.model_select = ComboBox("Select model:",
@@ -85,7 +91,7 @@ class MainWindow(QWidget):
         input_column.addWidget(self.input_parameter_table)
         top_row.addLayout(input_column, stretch=1)
 
-        # result table with headline
+        # fitting result table with headline
         result_column = QVBoxLayout()
         result_column.addWidget(Headline("Fitting Results"))
         result_column.addWidget(self.result_table)
@@ -100,7 +106,6 @@ class MainWindow(QWidget):
         bottom_row = QHBoxLayout()
 
         # plot_widget
-        self.plot_widget.setMinimumHeight(style_tokens.plot.minimum_height)
         bottom_row.addWidget(self.plot_widget, stretch=4)
 
         # create button column containing all buttons and combo boxes
@@ -140,7 +145,7 @@ class MainWindow(QWidget):
 
         button_column.addLayout(run_button_row)
 
-        # loading bar and label in a tight sub-layout
+        # loading bar and label
         progress_layout = QVBoxLayout()
         progress_layout.setSpacing(2) # smaller spacing between bar and label
         progress_layout.setContentsMargins(0, 0, 0, 0)
@@ -160,3 +165,7 @@ class MainWindow(QWidget):
         bottom_row.addLayout(button_column, stretch=1)
 
         return bottom_row
+
+    def closeEvent(self, event):
+        self.calibration_window.close()
+        event.accept()

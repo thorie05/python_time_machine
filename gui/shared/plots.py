@@ -9,8 +9,8 @@ from .style_config import style_tokens
 class HistogramWindow(QDialog):
     """A popup window that displays posterior samples in a histogram."""
 
-    def __init__(self, data, param_name):
-        super().__init__()
+    def __init__(self, data, param_name, parent=None):
+        super().__init__(parent)
         self.setObjectName("HistogramWindow")
 
         self.setWindowTitle(style_tokens.histogram_window.window_title)
@@ -45,11 +45,14 @@ class Plot(FigureCanvasQTAgg):
         super().__init__(self.fig)
         self._configure_axis()
 
-        self.x_data_scatter = None
-        self.y_data_scatter = None
-        self.y_err_data_scatter = None
-        self.x_data_plot = None
-        self.y_data_plot = None
+        self.setMinimumWidth(style_tokens.plot.minimum_width)
+        self.setMinimumHeight(style_tokens.plot.minimum_height)
+
+        self.x_data_scatter = []
+        self.y_data_scatter = []
+        self.y_err_data_scatter = []
+        self.name_data_scatter = []
+        self.color_data_scatter = []
 
     def _configure_axis(self):
         """Helper function that sets labels and sets the lower limit to y=0."""
@@ -58,15 +61,18 @@ class Plot(FigureCanvasQTAgg):
         self.ax.set_ylabel("Luminescence Lx/Tx")
         self.ax.set_ylim(bottom=0)
 
-    def _auto_ylim(self, y_data, y_err):
+    def _auto_ylim(self):
         """Helper function that sets the limits of y-axis given new data."""
 
         # set upper limit of the y-axis to show all non-negative data points
-        y_upper_limit = np.nanmax(y_data + y_err) * 1.05
+        y_upper_limit = 0
+        for y_data, y_err in zip(self.y_data_scatter, self.y_err_data_scatter):
+            y_upper_limit = max(np.nanmax(y_data + y_err) * 1.05, y_upper_limit)
+
         # always start at y=0
         self.ax.set_ylim(bottom=0, top=y_upper_limit)
 
-    def scatter(self, x_data, y_data, y_err_data):
+    def scatter(self, x_data, y_data, y_err_data, name=None, color=None):
         """
         Plot a scatter of data points with error bars.
 
@@ -74,48 +80,41 @@ class Plot(FigureCanvasQTAgg):
         renders them as a scatter plot with vertical error bars for each point.
         """
 
-        # clear everything, including the previous fitted function plot
-        self.clear()
-
         # assign new scatter data
-        self.x_data_scatter = x_data
-        self.y_data_scatter = y_data
-        self.y_err_data_scatter = y_err_data
+        self.x_data_scatter.append(x_data)
+        self.y_data_scatter.append(y_data)
+        self.y_err_data_scatter.append(y_err_data)
+        self.name_data_scatter.append(name)
+        self.color_data_scatter.append(color)
 
         # adjust axis limits and draw
-        self.ax.errorbar(self.x_data_scatter, self.y_data_scatter,
-            yerr=self.y_err_data_scatter, fmt='o', capsize=4,
-            color=style_tokens.plot.scatter_color)
-        self._auto_ylim(y_data, y_err_data)
+        self.ax.errorbar(x_data, y_data, yerr=y_err_data, fmt='o', capsize=4,
+            color=color, label=name)
+
+        if len(self.x_data_scatter) > 1:
+            self.ax.legend()
+
+        self._auto_ylim()
         self.draw()
 
-    def plot(self, x_data, y_data):
+    def plot(self, x_data, y_data, color=None):
         """
         Plot a line graph of the given data.
 
         Takes numpy arrays for the x-values, y-values and plots a line graph.
         """
 
-        # clear only previous plot, not the scatter
-        self.clear_only_plot()
-
-        # store new plot data
-        self.x_data_plot = x_data
-        self.y_data_plot = y_data
-
         # adjust axis limits and draw
-        self.ax.plot(x_data, y_data, color=style_tokens.plot.plot_color)
-        self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
+        self.ax.plot(x_data, y_data, color=color)
+        self._auto_ylim()
         self.draw()
 
     def clear(self):
         """Clears the entire graph."""
 
-        self.x_data_scatter = None
-        self.y_data_scatter = None
-        self.y_err_data_scatter = None
-        self.x_data_plot = None
-        self.y_data_plot = None
+        self.x_data_scatter.clear()
+        self.y_data_scatter.clear()
+        self.y_err_data_scatter.clear()
 
         self.ax.cla()
         self._configure_axis()
@@ -127,13 +126,17 @@ class Plot(FigureCanvasQTAgg):
         self.ax.cla()
         self._configure_axis()
 
-        self.x_data_plot = None
-        self.y_data_plot = None
+        # redraw all scatters
+        for x_data, y_data, y_err_data, name, color in \
+            zip(self.x_data_scatter, self.y_data_scatter,
+            self.y_err_data_scatter, self.name_data_scatter,
+            self.color_data_scatter):
 
-        # redraw scatter
-        if self.x_data_scatter is not None:
-            self._auto_ylim(self.y_data_scatter, self.y_err_data_scatter)
-            self.scatter(self.x_data_scatter, self.y_data_scatter,
-                self.y_err_data_scatter)
+            self.ax.errorbar(x_data, y_data, yerr=y_err_data, fmt='o',
+                capsize=4, color=color, label=name)
 
+        if len(self.x_data_scatter) > 1:
+            self.ax.legend()
+
+        self._auto_ylim()
         self.draw()

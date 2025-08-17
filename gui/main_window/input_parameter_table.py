@@ -35,7 +35,7 @@ class InputParameterTable(Table):
             for param_name in self.INPUT_PARAMETER_NAMES}
 
         # 2d layout of the table, row by row
-        self.LAYOUT = [
+        self.table_layout = [
             [
                 HeaderCell("Input Parameter"),
                 HeaderCell("Value"),
@@ -63,7 +63,7 @@ class InputParameterTable(Table):
             ],
         ]
 
-        super().__init__(self.LAYOUT)
+        super().__init__(self.table_layout)
 
     def get_value(self, param_name):
         """Returns the current value for a given parameter."""

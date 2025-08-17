@@ -4,37 +4,37 @@ import numpy as np
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
 
-from ..calibration_window.calibration_window import CalibrationWindow
+from ..shared.basic_widgets import MessageBoxFitCrash
 from ..shared.fit_runner import FitRunner
 from ..shared.read_write_xlsx import read_xlsx, write_xlsx
-from ..shared.style_config import param_names_unicode
+from ..shared.style_config import param_names_unicode, style_tokens
 
 
 class MainWindowLogic(QObject):
     def __init__(self, main_window, engine):
         super().__init__()
         self.ui = main_window # store main window class to access ui elements
+        self.engine = engine
+
+        self.fit_runner = None
 
         self.MODEL_SELECT_OPTIONS = {
-            "Single Exposure": engine.models.expo,
-            "Exposure-Burial":engine.models.expo_buri,
-            "Exposure-Burial-Exposure": engine.models.expo_buri_expo,
+            "Single Exposure": self.engine.models.expo,
+            "Exposure-Burial":self.engine.models.expo_buri,
+            "Exposure-Burial-Exposure": self.engine.models.expo_buri_expo,
             "Exposure-Burial-Exposure-Burial":
-                engine.models.expo_buri_expo_buri,
+                self.engine.models.expo_buri_expo_buri,
         }
         self.FIT_TYPE_OPTIONS = {
             "Least-squares fit": "easy",
             "MCMC fit": "mcmc"
         }
         self.FIT_QUALITY_OPTIONS = {
-            "low": engine.fit_quality_settings.low,
-            "medium": engine.fit_quality_settings.medium,
-            "high": engine.fit_quality_settings.high,
-            "very high": engine.fit_quality_settings.very_high
+            "low": self.engine.fit_quality_settings.low,
+            "medium": self.engine.fit_quality_settings.medium,
+            "high": self.engine.fit_quality_settings.high,
+            "very high": self.engine.fit_quality_settings.very_high
         }
-
-        self.engine = engine
-        self.fit_runner = None
 
         # input data
         self.x_data = None
@@ -42,6 +42,7 @@ class MainWindowLogic(QObject):
         self.y_err_std = None
         self.known_params = None
         self.known_params_err_std = None
+        self.bounds = None
 
         self.model_function = None
         self.fit_type = None
@@ -61,15 +62,7 @@ class MainWindowLogic(QObject):
                 "Wait until the current fit has finished.")
             return
 
-        if self.ui.calibration_window is None \
-            or not self.ui.calibration_window.isVisible():
-            # create new calibration window if it's not opened already
-            self.ui.calibration_window = CalibrationWindow()
-            self.ui.calibration_window.show()
-        else:
-            # don't create a new window if it already exists
-            self.ui.calibration_window.raise_()
-            self.ui.calibration_window.activateWindow()
+        self.ui.calibration_window.show()
 
     def load_xlsx(self):
         """Opens a file dialog to open fitting data and plots it."""
@@ -109,7 +102,8 @@ class MainWindowLogic(QObject):
 
             # scatter the new datapoints
             self.ui.plot_widget.scatter(self.x_data, self.y_data,
-                y_err_data=self.y_err_std)
+                y_err_data=self.y_err_std,
+                color=style_tokens.plot.single_scatter_color)
 
     def run_fit(self):
         """Run fit function that is connected to the run fit buttons."""
@@ -119,6 +113,10 @@ class MainWindowLogic(QObject):
             return
         if self.x_data is None:
             QMessageBox.warning(self.ui, "Warning", "No data loaded.")
+            return
+        if self.ui.calibration_window.isVisible():
+            QMessageBox.warning(self.ui, "Warning", "The calibration window "
+                "needs to be closed.")
             return
 
         # get parameter values with stds for all input parameters from the ui
@@ -139,7 +137,7 @@ class MainWindowLogic(QObject):
         fit_type_select = self.ui.fit_type_select.get_text()
         self.fit_type = self.FIT_TYPE_OPTIONS[fit_type_select]
         fit_quality_select = self.ui.fit_quality_select.get_text()
-        fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
+        self.fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
         model_select = self.ui.model_select.get_text()
         self.model_function = self.MODEL_SELECT_OPTIONS[model_select]
 
@@ -183,15 +181,6 @@ class MainWindowLogic(QObject):
                         f"between {lower_std} and {upper_std}")
                     return
 
-        # get a list of all free/fit parameter names
-        free_params = [param_name for param_name in model_arguments \
-            if param_name not in self.known_params.keys()]
-
-        # get bounds for the free parameters (needed initial guess finder)
-        bounds = {param_name: value for param_name, value \
-            in self.engine.param_bounds.val.asdict().items() \
-            if param_name in free_params}
-
         # hide export fit button
         self.ui.export_button.setVisible(False)
 
@@ -199,12 +188,24 @@ class MainWindowLogic(QObject):
         self.ui.result_table.clear()
         self.ui.plot_widget.clear_only_plot()
 
+        self.ui.progress_bar.setVisible(True)
+        self.ui.status_label.setVisible(True)
+
+        # get a list of all free/fit parameter names
+        free_params = [param_name for param_name in model_arguments \
+            if param_name not in self.known_params.keys()]
+
+        # get bounds for the free parameters (needed initial guess finder)
+        self.bounds = {param_name: value for param_name, value \
+            in self.engine.param_bounds.val.asdict().items() \
+            if param_name in free_params}
+
         # run fit 
         self.fit_runner = FitRunner(self.engine, self.x_data,
             self.y_data, self.y_err_std, self.model_function, self.known_params,
-            bounds, self.fit_type,
+            self.bounds, self.fit_type,
             known_params_err_std=self.known_params_err_std,
-            fit_quality=fit_quality)
+            fit_quality=self.fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
         self.fit_runner.finished.connect(self.on_fit_finished,
@@ -213,9 +214,6 @@ class MainWindowLogic(QObject):
             Qt.QueuedConnection)
         self.fit_runner._thread.finished.connect(self.clear_fit_runner,
             Qt.QueuedConnection)
-
-        self.ui.progress_bar.setVisible(True)
-        self.ui.status_label.setVisible(True)
 
         self.fit_runner.start()
 
@@ -274,7 +272,8 @@ class MainWindowLogic(QObject):
         x_data_fit = np.linspace(np.min(self.x_data), np.max(self.x_data), 200)
         y_data_fit = self.model_function(x_data_fit, **self.known_params,
             **self.fit_result.best_fit)
-        self.ui.plot_widget.plot(x_data_fit, y_data_fit)
+        self.ui.plot_widget.plot(x_data_fit, y_data_fit,
+            color=style_tokens.plot.single_plot_color)
 
     def on_fit_failed(self, message):
         """Function that is called when a fit raises an error."""
@@ -284,22 +283,7 @@ class MainWindowLogic(QObject):
         self.ui.status_label.setVisible(False)
 
         # create message box
-        msg_box = QMessageBox(self.ui)
-        msg_box.setIcon(QMessageBox.Critical)
-        msg_box.setWindowTitle("Error")
-        msg_box.setText("Fit crashed. This should not happen. Could be caused "
-            "by bad input data or bad input parameters.")
-        msg_box.setInformativeText("Full error message:")
-
-        # create a scrollable text area for the traceback message
-        text_edit = QTextEdit()
-        text_edit.setPlainText(message)
-        text_edit.setReadOnly(True)
-        text_edit.setMinimumSize(400, 200)
-        text_edit.setMaximumSize(800, 400)
-        msg_box.layout().addWidget(text_edit, 1, 0, 1,
-            msg_box.layout().columnCount())
-
+        msg_box = MessageBoxFitCrash(message, parent=self.ui)
         msg_box.exec()
 
     def clear_fit_runner(self):

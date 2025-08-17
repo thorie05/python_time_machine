@@ -2,6 +2,10 @@ import traceback
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 
+class FitAborted(Exception):
+    pass
+
+
 class FitRunner(QObject):
     """Fit runner object running all fits."""
 
@@ -43,13 +47,33 @@ class FitRunner(QObject):
         self.finished.connect(self.deleteLater)
         self.failed.connect(self.deleteLater)
 
+    def _check_abort(self):
+        if self._thread.isInterruptionRequested():
+            raise FitAborted()
+
+    def _status_cb(self, msg: str):
+        self._check_abort()
+        self.status.emit(msg)
+
     @Slot()
     def start(self):
         self._thread.start()
 
+    def abort(self):
+        if self._thread.isRunning():
+            self._thread.requestInterruption()
+            if hasattr(self.engine, "cancel"):
+                try:
+                    self.engine.cancel()
+                except Exception:
+                    pass
+            self._thread.quit()
+            self._thread.wait()
+
     @Slot()
     def doWork(self):
         try:
+            self._check_abort()
             if self.fit_type == "mcmc":
                 # run full fit
                 self.initial_guess, self.bootstrap_estimation, self.fit_result \
@@ -57,10 +81,10 @@ class FitRunner(QObject):
                     self.y_err_std, self.model_function, self.known_params,
                     known_params_err_std=self.known_params_err_std,
                     bounds=self.bounds, fit_quality=self.fit_quality, cores=1,
-                    only_positive=True, status_callback=self.status.emit)
+                    only_positive=True, status_callback=self._status_cb)
             else:
                 # get initial guess
-                self.status.emit("Finding initial guess...")
+                self._status_cb("Finding initial guess...")
 
                 self.initial_guess = self.engine.get_initial_guess(self.x_data,
                     self.y_data, self.model_function, self.known_params,
@@ -69,11 +93,14 @@ class FitRunner(QObject):
                     num_restarts=self.fit_quality.num_restarts)
 
                 # run least squares
-                self.status.emit("Running least-squares fit...")
+                self._status_cb("Running least-squares fit...")
                 self.fit_result = self.engine.easy_fit(self.x_data, self.y_data,
                     self.model_function, self.known_params, self.initial_guess,
                     y_err_std=self.y_err_std)
 
+            self.finished.emit()
+        except FitAborted:
+            self.status.emit("Aborted.")
             self.finished.emit()
         except Exception:
             tb = traceback.format_exc()

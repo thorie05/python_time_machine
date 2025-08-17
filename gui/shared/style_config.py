@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, field, fields
+from typing import List
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,14 @@ class Colors:
 
     PLT_DEFAULT_BLUE: str = "#1f77b4"
     PLT_DEFAULT_ORANGE: str = "#ff7f0e"
-
+    PLT_DEFAULT_GREEN: str = "#2ca02c"
+    PLT_DEFAULT_RED: str = "#d62728"
+    PLT_DEFAULT_PURPLE: str = "#9467bd"
+    PLT_DEFAULT_BROWN: str = "#8c564b"
+    PLT_DEFAULT_PINK: str = "#e377c2"
+    PLT_DEFAULT_GRAY: str = "#7f7f7f"
+    PLT_DEFAULT_OLIVE: str = "#bcbd22"
+    PLT_DEFAULT_CYAN: str = "#17becf"
 
 colors = Colors()
 
@@ -51,6 +59,20 @@ class Button:
 class ComboBox:
     background_color: str = colors.WHITE
     selection_color: str = colors.BLACK
+
+
+@dataclass
+class CalibrationWindow:
+    window_title: str = "Python Time Machine"
+    background_color: str = colors.WHITE
+    outer_margin: int = 30 # px
+    outer_margin_lower: int = 0 # px
+    default_width: int = 1125 # px
+    default_height: int = 750 # px
+    inner_window_spacing: int = 10 # px
+    top_row_spacing: int = 20 # px
+    button_column_top_margin: int = 50 # px
+    button_column_spacing: int = 16 # px
 
 
 @dataclass
@@ -82,9 +104,24 @@ class MainWindow:
 @dataclass
 class Plot:
     minimum_height: int = 500 # px
-    scatter_color: str = colors.PLT_DEFAULT_BLUE
-    plot_color: str = colors.PLT_DEFAULT_ORANGE
+    minimum_width: int = 600 # px
+    single_scatter_color: str = colors.PLT_DEFAULT_BLUE
+    single_plot_color: str = colors.PLT_DEFAULT_ORANGE
     histogram_color: str = colors.PLT_DEFAULT_BLUE
+
+
+    color_cycle: List[str] = field(default_factory=lambda: [
+        colors.PLT_DEFAULT_BLUE,
+        colors.PLT_DEFAULT_ORANGE,
+        colors.PLT_DEFAULT_GREEN,
+        colors.PLT_DEFAULT_RED,
+        colors.PLT_DEFAULT_PURPLE,
+        colors.PLT_DEFAULT_BROWN,
+        colors.PLT_DEFAULT_PINK,
+        colors.PLT_DEFAULT_GRAY,
+        colors.PLT_DEFAULT_OLIVE,
+        colors.PLT_DEFAULT_CYAN,
+    ])
 
 
 @dataclass
@@ -122,6 +159,8 @@ class StyleTokens:
     """Holds different dataclasses with style tokens."""
 
     button: Button = field(default_factory=Button)
+    calibration_window: CalibrationWindow \
+        = field(default_factory=CalibrationWindow)
     combo_box: ComboBox = field(default_factory=ComboBox)
     headline: Headline = field(default_factory=Headline)
     histogram_window: HistogramWindow = field(default_factory=HistogramWindow)
