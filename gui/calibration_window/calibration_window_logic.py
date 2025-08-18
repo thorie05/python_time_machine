@@ -1,4 +1,5 @@
-from inspect import signature
+from functools import partial
+
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 import numpy as np
@@ -10,11 +11,15 @@ from ..shared.style_config import param_names_unicode, style_tokens
 
 
 class CalibrationWindowLogic(QObject):
-    def __init__(self, calibration_window, engine):
+    def __init__(self, calibration_window, engine,
+        apply_calibration_results_main_window_func):
+
         super().__init__()
         # store calibration window class to access ui elements
         self.ui = calibration_window
         self.engine = engine
+        self.apply_calibration_results_main_window_func \
+            = apply_calibration_results_main_window_func
 
         self.fit_runner = None
 
@@ -68,18 +73,21 @@ class CalibrationWindowLogic(QObject):
                     QMessageBox.warning(self.ui, "Warning", ".Each xlsx sheet" \
                     "must consist of three columns of the same height (Depth, "
                     "Lx/Tx and Error).")
-                    self.x_data_dict.clear()
-                    self.y_data_dict.clear()
-                    self.y_err_std_dict.clear()
-                    self.ui.plot_widget.clear()
                     return
-
-                self.ui.plot_widget.clear()
-                self.ui.export_button.setVisible(False)
 
             self.x_data_dict.clear()
             self.y_data_dict.clear()
             self.y_err_std_dict.clear()
+            self.t_exposure_dict.clear()
+            self.plot_color_dict.clear()
+            self.order = None
+            self.order_std = None
+            self.sigma_phi = None
+            self.sigma_phi_std = None
+            self.mu = None
+            self.mu_std = None
+
+            self.ui.plot_widget.clear()
 
             num_colors = len(style_tokens.plot.color_cycle)
             for i, sheet_name in enumerate(sheet_data.keys()):
@@ -100,6 +108,21 @@ class CalibrationWindowLogic(QObject):
             self.ui.calibration_samples_table.update_calibration_samples(
                 list(sheet_data.keys()))
 
+    def apply_calibration_results(self):
+        if self.fit_runner is not None:
+            QMessageBox.warning(self.ui, "Warning",
+                "Wait until the current calibration has finished.")
+            return
+        if self.sigma_phi is None:
+            QMessageBox.warning(self.ui,
+                "Warning", "No calibration fit completed.")
+            return
+
+        self.apply_calibration_results_main_window_func(
+            self.sigma_phi, self.sigma_phi_std, self.mu, self.mu_std)
+
+        self.ui.close()
+
     def run_fit(self):
         """Run fit function that is connected to the run fit buttons."""
 
@@ -119,8 +142,8 @@ class CalibrationWindowLogic(QObject):
         lower_order, upper_order = self.engine.param_bounds.val.order
         if not (lower_order <= self.order <= upper_order):
             QMessageBox.warning(self.ui, "Warning", 
-                f"{param_names_unicode.order} must lie between {lower_order} "
-                f"and {upper_order}")
+                f"{param_names_unicode.order} must lie between "
+                f"{lower_order + 1} and {upper_order + 1}")
             return
 
         lower_t_exposure, upper_t_exposure \
@@ -137,9 +160,6 @@ class CalibrationWindowLogic(QObject):
                     f"t<sub>exposure</sub> of {sample_name} must lie between "
                     f"{lower_t_exposure} and {upper_t_exposure}")
                 return
-
-        # hide export fit button
-        self.ui.export_button.setVisible(False)
 
         # clear result table and previous fitted function
         self.ui.calibration_parameter_table.clear()
@@ -210,12 +230,6 @@ class CalibrationWindowLogic(QObject):
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
 
-        # show export fit button only on for mcmc fit
-        if self.fit_result.samples:
-            self.ui.export_button.setVisible(True)
-
-        print(self.fit_result) # debug
-
         result_table = self.ui.calibration_parameter_table
 
         self.sigma_phi = self.fit_result.best_fit["sigma_phi"]
@@ -224,12 +238,17 @@ class CalibrationWindowLogic(QObject):
         result_table.set_sigma_phi(self.sigma_phi)
         result_table.set_mu(self.mu)
 
-        if self.fit_result.robust_std:
+        if self.fit_type == "mcmc":
             self.sigma_phi_std = self.fit_result.robust_std["sigma_phi"]
             self.mu_std = self.fit_result.robust_std["mu"]
 
             result_table.set_sigma_phi_std(self.sigma_phi_std)
             result_table.set_mu_std(self.mu_std)
+
+            # set posterior samples to be connected with double click
+            result_table.set_posterior_samples_sigma_phi(
+                self.fit_result.samples["sigma_phi"])
+            result_table.set_posterior_samples_mu(self.fit_result.samples["mu"])
 
         for sample_name in self.x_data_dict:
             x_data = self.x_data_dict[sample_name]

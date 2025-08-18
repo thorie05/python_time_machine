@@ -83,7 +83,7 @@ class InputCell(QLineEdit):
         self.setObjectName("InputCell")
 
         self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         validator = QDoubleValidator(bounds[0], bounds[1], 8)
         self.setValidator(validator)

@@ -1,13 +1,6 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QApplication,
-    QLabel,
-    QHBoxLayout,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
 
-from ..calibration_window.calibration_window import CalibrationWindow
 from .input_parameter_table import InputParameterTable
 from .main_window_logic import MainWindowLogic
 from .fitting_result_table import FittingResultTable
@@ -31,7 +24,7 @@ class MainWindow(QWidget):
         self.logic = MainWindowLogic(self, engine)
 
         # functional widgets are stored as attributes for later access
-        self.calibration_window = CalibrationWindow(engine)
+        self.calibration_window = None 
 
         self.input_parameter_table = InputParameterTable(self.logic.engine)
         self.result_table = FittingResultTable()
@@ -47,7 +40,7 @@ class MainWindow(QWidget):
         self.calibration_button = Button("Calibrate")
         self.load_button = Button("Choose .xlsx data")
         self.run_fit_button = Button("Run fit")
-        self.export_button = Button("Export MCMC fit results")
+        self.export_button = Button("Export MCMC results")
 
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
@@ -141,7 +134,6 @@ class MainWindow(QWidget):
 
         run_button_row.addWidget(self.export_button)
         self.export_button.clicked.connect(self.logic.export_mcmc_fit)
-        self.export_button.setVisible(False)
 
         button_column.addLayout(run_button_row)
 
@@ -165,7 +157,8 @@ class MainWindow(QWidget):
         bottom_row.addLayout(button_column, stretch=1)
 
         return bottom_row
-
+    
     def closeEvent(self, event):
-        self.calibration_window.close()
-        event.accept()
+        if self.calibration_window is not None:
+            self.calibration_window.force_close()
+        super().closeEvent(event)

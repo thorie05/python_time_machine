@@ -1,3 +1,5 @@
+from functools import partial
+
 from ..shared.table import (
     ClickableContentCell,
     HeaderCell,
@@ -5,6 +7,7 @@ from ..shared.table import (
     InputCell,
     Table,
 )
+from ..shared.plots import HistogramWindow
 from ..shared.style_config import param_names_unicode
 
 
@@ -59,6 +62,31 @@ class CalibrationParameterTable(Table):
 
         # always round to two digits
         self.ROUND_TO_DIGITS = 6
+
+    def show_histogram(self, samples, title):
+        """Opens a window with a histogram of the posterior samples."""
+
+        self.histogram_window = HistogramWindow(samples, title)
+        self.histogram_window.show()
+
+    def set_posterior_samples_sigma_phi(self, samples):
+        """Sets the posterior samples for sigma_phi."""
+
+        self._set_posterior_samples(samples, "sigma_phi", self.sigma_phi_cell)
+
+    def set_posterior_samples_mu(self, samples):
+        """Sets the posterior samples for mu."""
+
+        self._set_posterior_samples(samples, "mu", self.mu_cell)
+
+    def _set_posterior_samples(self, samples, param_name, cell):
+        """Sets posterior samples for a given parameter (sigma_phi or mu)."""
+
+        if samples is None:
+            cell.disconnect_double_click()
+        else:
+            func = partial(self.show_histogram, samples, param_name)
+            cell.connect_double_click(func)
 
     def clear(self):
         """Clears all result cells in the table."""

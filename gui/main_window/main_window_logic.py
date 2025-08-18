@@ -4,6 +4,7 @@ import numpy as np
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
 
+from ..calibration_window.calibration_window import CalibrationWindow
 from ..shared.basic_widgets import MessageBoxFitCrash
 from ..shared.fit_runner import FitRunner
 from ..shared.read_write_xlsx import read_xlsx, write_xlsx
@@ -16,6 +17,7 @@ class MainWindowLogic(QObject):
         self.ui = main_window # store main window class to access ui elements
         self.engine = engine
 
+        self.calibration_window = None
         self.fit_runner = None
 
         self.MODEL_SELECT_OPTIONS = {
@@ -62,7 +64,18 @@ class MainWindowLogic(QObject):
                 "Wait until the current fit has finished.")
             return
 
-        self.ui.calibration_window.show()
+        if self.ui.calibration_window is None:
+            self.ui.calibration_window = CalibrationWindow(self.engine,
+                self.apply_calibration_results)
+            self.ui.calibration_window.setAttribute(Qt.WA_DeleteOnClose, True)
+
+            self.ui.calibration_window.destroyed.connect(
+                lambda _=None: setattr(self.ui, "calibration_window", None))
+
+            self.ui.calibration_window.show()
+        else:
+            self.ui.calibration_window.raise_()
+            self.ui.calibration_window.activateWindow()
 
     def load_xlsx(self):
         """Opens a file dialog to open fitting data and plots it."""
@@ -93,9 +106,6 @@ class MainWindowLogic(QObject):
                 "and Error).")
                 return
 
-            # hide export fit button
-            self.ui.export_button.setVisible(False)
-
             # clear result table and plot
             self.ui.result_table.clear()
             self.ui.plot_widget.clear()
@@ -114,7 +124,7 @@ class MainWindowLogic(QObject):
         if self.x_data is None:
             QMessageBox.warning(self.ui, "Warning", "No data loaded.")
             return
-        if self.ui.calibration_window.isVisible():
+        if self.ui.calibration_window is not None:
             QMessageBox.warning(self.ui, "Warning", "The calibration window "
                 "needs to be closed.")
             return
@@ -168,6 +178,10 @@ class MainWindowLogic(QObject):
 
             # always check known values
             if not (lower_val <= value_val <= upper_val):
+                # increment order bounds by 1 for ui, see models for details
+                if param_name == "order":
+                    lower_val += 1
+                    upper_val += 1
                 QMessageBox.warning(self.ui, "Warning", 
                     f"{param_name_unicode} must lie between {lower_val} and "
                     f"{upper_val}")
@@ -252,7 +266,7 @@ class MainWindowLogic(QObject):
                     param_name, interval)
 
         # set event ages and posterior samples (only after mcmc fit)
-        if self.fit_result.samples is not None:
+        if self.fit_type == "mcmc":
             # calculate event ages from posterior samples
             event_ages, event_ages_samples = self.engine.get_event_ages(
                 list(self.fit_result.best_fit.keys()), self.fit_result.samples)
@@ -292,6 +306,10 @@ class MainWindowLogic(QObject):
         self.fit_runner = None
 
     def export_mcmc_fit(self):
+        if self.fit_type != "mcmc":
+            QMessageBox.warning(self.ui, "Warning", "No MCMC fit completed.")
+            return
+
         path, _ = QFileDialog.getSaveFileName(self.ui,
             caption="Save fit result as Excel file", dir="",
             filter="Excel Workbook (*.xlsx)")
@@ -301,3 +319,9 @@ class MainWindowLogic(QObject):
             path += ".xlsx"
 
         write_xlsx(path)
+
+    def apply_calibration_results(self, sigma_phi, sigma_phi_std, mu, mu_std):
+        self.ui.input_parameter_table.set_value("sigma_phi", sigma_phi)
+        self.ui.input_parameter_table.set_std("sigma_phi", sigma_phi_std)
+        self.ui.input_parameter_table.set_value("mu", mu)
+        self.ui.input_parameter_table.set_std("mu", mu_std)

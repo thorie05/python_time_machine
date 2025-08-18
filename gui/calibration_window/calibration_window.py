@@ -1,5 +1,11 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QLabel,
+    QHBoxLayout,
+    QMessageBox,
+    QVBoxLayout,
+    QWidget
+)
 
 from .calibration_parameter_table import CalibrationParameterTable
 from .calibration_samples_table import CalibrationSamplesTable
@@ -12,19 +18,18 @@ from ..shared.style_config import style_tokens
 class CalibrationWindow(QWidget):
     """
     The calibration window.
-
     ...
     """
 
-    def __init__(self, engine):
+    def __init__(self, engine, apply_calibration_results_main_window_func):
         super().__init__()
         self.setObjectName("CalibrationWindow")
 
-        self.logic = CalibrationWindowLogic(self, engine)
+        self.logic = CalibrationWindowLogic(self, engine,
+            apply_calibration_results_main_window_func)
+        self._force_close = False
 
         # functional widgets are stored as attributes for later access
-        self.calibration_window = None
-
         self.calibration_parameter_table = CalibrationParameterTable(engine)
         self.calibration_samples_table = CalibrationSamplesTable()
         self.plot_widget = Plot()
@@ -36,7 +41,8 @@ class CalibrationWindow(QWidget):
 
         self.load_button = Button("Choose .xlsx data")
         self.run_fit_button = Button("Run calibration")
-        self.export_button = Button("Export MCMC fit results")
+        self.export_button = Button("Export MCMC results")
+        self.apply_button = Button("Apply calibration results")
 
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
@@ -125,9 +131,11 @@ class CalibrationWindow(QWidget):
 
         run_button_row.addWidget(self.export_button)
         # self.export_button.clicked.connect(self.logic.export_mcmc_fit)
-        self.export_button.setVisible(False)
 
         button_column.addLayout(run_button_row)
+
+        button_column.addWidget(self.apply_button)
+        self.apply_button.clicked.connect(self.logic.apply_calibration_results)
 
         # loading bar and label
         progress_layout = QVBoxLayout()
@@ -149,3 +157,18 @@ class CalibrationWindow(QWidget):
         bottom_row.addLayout(button_column, stretch=1)
 
         return bottom_row
+
+    def closeEvent(self, event):
+        if not self._force_close and self.logic.fit_runner \
+            and self.logic.fit_runner._thread.isRunning():
+            QMessageBox.warning(self, "Warning",
+                "The calibration window can't be closed while a fit is "
+                " running. Close the main window to exit the app.")
+            event.ignore()
+            return
+
+        super().closeEvent(event)
+
+    def force_close(self):
+        self._force_close = True
+        self.close()

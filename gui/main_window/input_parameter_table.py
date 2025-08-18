@@ -25,12 +25,12 @@ class InputParameterTable(Table):
             bounds_val["order"][1] + 1.0)
 
         # dicts mapping parameter names to their table input cell widgets
-        self.VALUE_INPUT_CELLS = {
+        self.value_input_cells = {
             param_name: InputCell(
             default=self.INPUT_PARAMETER_DEFAULT_VALUES[param_name],
             bounds=bounds_val[param_name]) \
             for param_name in self.INPUT_PARAMETER_NAMES}
-        self.STD_INPUT_CELLS = {
+        self.std_input_cells = {
             param_name: InputCell(bounds=bounds_std[param_name]) \
             for param_name in self.INPUT_PARAMETER_NAMES}
 
@@ -43,34 +43,54 @@ class InputParameterTable(Table):
             ],
             [
                 IndexCell(param_names_unicode.order),
-                self.VALUE_INPUT_CELLS["order"],
-                self.STD_INPUT_CELLS["order"],
+                self.value_input_cells["order"],
+                self.std_input_cells["order"],
             ],
             [
                 IndexCell(param_names_unicode.sigma_phi),
-                self.VALUE_INPUT_CELLS["sigma_phi"],
-                self.STD_INPUT_CELLS["sigma_phi"],
+                self.value_input_cells["sigma_phi"],
+                self.std_input_cells["sigma_phi"],
             ],
             [
                 IndexCell(param_names_unicode.mu),
-                self.VALUE_INPUT_CELLS["mu"],
-                self.STD_INPUT_CELLS["mu"],
+                self.value_input_cells["mu"],
+                self.std_input_cells["mu"],
             ],
             [
                 IndexCell(param_names_unicode.f),
-                self.VALUE_INPUT_CELLS["f"],
-                self.STD_INPUT_CELLS["f"],
+                self.value_input_cells["f"],
+                self.std_input_cells["f"],
             ],
         ]
 
+        # always round to 6 digits
+        # only relevant for applying calibration results
+        self.ROUND_TO_DIGITS = 6
+
         super().__init__(self.table_layout)
+
+    def set_value(self, param_name, value):
+        """Sets the current value for a given parameter."""
+
+        label_text = ""
+        if value is not None:
+            label_text = f"{round(value, self.ROUND_TO_DIGITS)}"
+        self.value_input_cells[param_name].setText(label_text)
+
+    def set_std(self, param_name, std):
+        """Sets the current standard deviation for a given parameter."""
+
+        label_text = ""
+        if std is not None:
+            label_text = f"{round(std, self.ROUND_TO_DIGITS)}"
+        self.std_input_cells[param_name].setText(label_text)
 
     def get_value(self, param_name):
         """Returns the current value for a given parameter."""
 
-        return self.VALUE_INPUT_CELLS[param_name].get_value()
+        return self.value_input_cells[param_name].get_value()
 
     def get_std(self, param_name):
         """Returns the current standard deviation for a given parameter."""
 
-        return self.STD_INPUT_CELLS[param_name].get_value()
+        return self.std_input_cells[param_name].get_value()

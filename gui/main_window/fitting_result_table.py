@@ -76,9 +76,6 @@ class FittingResultTable(Table):
     def set_result(self, param_name, value):
         """Sets the result for a given paramter."""
 
-        #debug:
-        print("set result:", param_name, value)
-
         label_text = ""
         if value is not None:
             label_text = f"{round(value, self.ROUND_TO_DIGITS)}"
@@ -86,9 +83,6 @@ class FittingResultTable(Table):
 
     def set_confidence_interval(self, param_name, interval):
         """Sets the confidence intervals for a given paramter."""
-
-        #debug:
-        print("set interval:", param_name, interval)
 
         label_text = ""
         if interval is not None:
@@ -98,8 +92,6 @@ class FittingResultTable(Table):
 
     def set_posterior_samples(self, param_name, samples):
         """Sets the posterior samples for a given paramter."""
-        #debug:
-        print("set samples:", param_name)
 
         cell = self.result_cells[param_name]
         if samples is None:

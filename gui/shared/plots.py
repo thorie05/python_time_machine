@@ -104,9 +104,7 @@ class Plot(FigureCanvasQTAgg):
         Takes numpy arrays for the x-values, y-values and plots a line graph.
         """
 
-        # adjust axis limits and draw
         self.ax.plot(x_data, y_data, color=color)
-        self._auto_ylim()
         self.draw()
 
     def clear(self):
@@ -115,6 +113,8 @@ class Plot(FigureCanvasQTAgg):
         self.x_data_scatter.clear()
         self.y_data_scatter.clear()
         self.y_err_data_scatter.clear()
+        self.name_data_scatter.clear()
+        self.color_data_scatter.clear()
 
         self.ax.cla()
         self._configure_axis()
