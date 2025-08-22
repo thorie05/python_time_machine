@@ -17,33 +17,34 @@ from ..shared.style_config import style_tokens
 
 class CalibrationWindow(QWidget):
     """
-    The calibration window.
-    ...
+    The calibration window widget.
+
+    Hosts the widgets and connects them to logic from calibration_window_logic.
     """
 
     def __init__(self, engine, apply_calibration_results_main_window_func):
         super().__init__()
         self.setObjectName("CalibrationWindow")
 
+        # store logic methods to connect them with widgets
         self.logic = CalibrationWindowLogic(self, engine,
             apply_calibration_results_main_window_func)
+
+        # flag for forcing the close of the window even when a fit is running
         self._force_close = False
 
         # functional widgets are stored as attributes for later access
         self.calibration_parameter_table = CalibrationParameterTable(engine)
         self.calibration_samples_table = CalibrationSamplesTable()
         self.plot_widget = Plot()
-
         self.fit_quality_select = ComboBox("Select fit quality:",
             list(self.logic.FIT_QUALITY_OPTIONS.keys()))
         self.fit_type_select = ComboBox("Select fit type:",
             self.logic.FIT_TYPE_OPTIONS)
-
         self.load_button = Button("Choose .xlsx data")
         self.run_fit_button = Button("Run calibration")
         self.export_button = Button("Export MCMC results")
         self.apply_button = Button("Apply calibration results")
-
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
 
@@ -122,18 +123,16 @@ class CalibrationWindow(QWidget):
         # set medium as default value for fit quality
         self.fit_quality_select.combo_box.setCurrentIndex(1)
 
-        # run fit and export button row 
+        # run fit and export buttons in a row
         run_button_row = QHBoxLayout()
         run_button_row.setAlignment(Qt.AlignLeft)
-
         run_button_row.addWidget(self.run_fit_button)
         self.run_fit_button.clicked.connect(self.logic.run_fit)
-
         run_button_row.addWidget(self.export_button)
-        # self.export_button.clicked.connect(self.logic.export_mcmc_fit)
-
+        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
         button_column.addLayout(run_button_row)
 
+        # apply calibration results button
         button_column.addWidget(self.apply_button)
         self.apply_button.clicked.connect(self.logic.apply_calibration_results)
 
@@ -141,13 +140,10 @@ class CalibrationWindow(QWidget):
         progress_layout = QVBoxLayout()
         progress_layout.setSpacing(2) # smaller spacing between bar and label
         progress_layout.setContentsMargins(0, 0, 0, 0)
-
         self.progress_bar.setVisible(False)
         progress_layout.addWidget(self.progress_bar)
-
         self.status_label.setVisible(False)
         progress_layout.addWidget(self.status_label)
-
         button_column.addLayout(progress_layout)
 
         # add stretch so that the buttons stack from top instead of spacing
@@ -159,16 +155,21 @@ class CalibrationWindow(QWidget):
         return bottom_row
 
     def closeEvent(self, event):
-        if not self._force_close and self.logic.fit_runner \
-            and self.logic.fit_runner._thread.isRunning():
-            QMessageBox.warning(self, "Warning",
-                "The calibration window can't be closed while a fit is "
-                " running. Close the main window to exit the app.")
-            event.ignore()
-            return
+        """Prevents the close of the calibration window if a fit is running."""
+
+        # skip the check if the force close flag is active
+        if not self._force_close:
+            if self.logic.fit_runner:
+                QMessageBox.warning(self, "Warning",
+                    "The calibration window can't be closed while a fit is "
+                    " running. Close the main window to exit the app.")
+                event.ignore()
+                return
 
         super().closeEvent(event)
 
     def force_close(self):
+        """Forces the close of the calibration even if a fit is running."""
+
         self._force_close = True
         self.close()

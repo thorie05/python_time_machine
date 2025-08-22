@@ -14,7 +14,7 @@ class InputParameterTable(Table):
         # all names result parameter names displayed somewhere int the table
         self.INPUT_PARAMETER_NAMES = ["order", "sigma_phi", "mu", "f"]
         self.INPUT_PARAMETER_DEFAULT_VALUES \
-            = {"order": 1.0, "sigma_phi": 5.0, "mu": 5.0, "f": 0.0001}
+            = {"order": 1.0, "sigma_phi": 0.0, "mu": 0.0, "f": 0.0}
 
         # retrieve value and std bounds from the engine
         bounds_val = engine.param_bounds.val.asdict()

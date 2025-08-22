@@ -13,7 +13,7 @@ from .param_bounds import param_bounds
 
 class FittingEngine():
     """
-    Wrapper class for all fitting functionality.
+    A wrapper class to expose all fitting functionality.
 
     This class provides a unified interface for all fitting functionality,
     combining general-purpose fitting tools from fitcore with OSL-specific
@@ -26,7 +26,7 @@ class FittingEngine():
         fit_quality_settings (FitQualitySettings): An instance of
             FitQualitySettings for easy access.
         param_bounds (ParamBounds): An instance of ParamBounds for easy access.
-        verbose (bool): Flag controling console output.
+        verbose (bool): Bool flag controling console output.
 
     Methods:
         get_initial_guess

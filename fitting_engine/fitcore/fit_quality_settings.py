@@ -1,6 +1,22 @@
 from dataclasses import dataclass, field
 
 
+# FitQualitySettings is only used for full_fit, not for easy_fit, bootstrap_fit
+#   and bayesian_fit to provide more versatility.
+
+# draws: Number of MCMC samples.
+#   A higher number samples increases the accuracy of the fit results.
+# tune: Number of MCMC burn-in samples.
+#    Should be large enough to ensure correct results, but a too large number
+#    throws away valid samples.
+# target_accept: Influences the MCMC step-size.
+#    Needs to be large enough so all MCMC chains converge, especially when a
+#    model with many fit parameters is used and/or input data is noisy.
+# n_bootstrap: Number of bootstrap samples used for Bayesina prior estimation.
+# num_restarts: Number of global optimization runs used in get_initial_guess.
+#   More restarts increase the probability of finding the global minimum.
+
+
 @dataclass(frozen=True)
 class Low:
     draws = 3_000
@@ -35,8 +51,8 @@ class VeryHigh:
 
 @dataclass(frozen=True)
 class FitQualitySettings:
-    """Contains settings for different fit quality options."""
-
+    """A dataclass containing settings for different fit quality options."""
+    
     low: Low = field(default_factory=Low)
     medium: Medium = field(default_factory=Medium)
     high: High = field(default_factory=High)

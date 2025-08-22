@@ -11,6 +11,7 @@ from gui.shared.style_config import flat_style_tokens_dict
 def main():
     """Main function."""
 
+    # verbose flag controls console output
     verbose = "--verbose" in sys.argv
 
     app = QApplication()
@@ -26,7 +27,7 @@ def main():
     
     app.setStyleSheet(qss_filled)
 
-    engine = FittingEngine(verbose=True) # debug: verbose always True
+    engine = FittingEngine(verbose=verbose)
     window = MainWindow(engine)
     window.show()
 

@@ -1,27 +1,26 @@
-from functools import partial
-
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 import numpy as np
 
 from ..shared.basic_widgets import MessageBoxFitCrash
 from ..shared.fit_runner import FitRunner
-from ..shared.read_write_xlsx import read_xlsx
+from ..shared.read_write_xlsx import read_xlsx, write_xlsx
 from ..shared.style_config import param_names_unicode, style_tokens
 
 
 class CalibrationWindowLogic(QObject):
     def __init__(self, calibration_window, engine,
         apply_calibration_results_main_window_func):
-
         super().__init__()
+
         # store calibration window class to access ui elements
         self.ui = calibration_window
+
         self.engine = engine
+        self.fit_runner = None
+
         self.apply_calibration_results_main_window_func \
             = apply_calibration_results_main_window_func
-
-        self.fit_runner = None
 
         self.FIT_TYPE_OPTIONS = {
             "Least-squares fit": "easy",
@@ -34,18 +33,26 @@ class CalibrationWindowLogic(QObject):
             "very high": self.engine.fit_quality_settings.very_high
         }
 
+        # input data
         self.x_data_dict = {}
         self.y_data_dict = {}
         self.y_err_std_dict = {}
         self.t_exposure_dict = {}
         self.plot_color_dict = {}
-
         self.order = None
         self.order_std = None
         self.sigma_phi = None
         self.sigma_phi_std = None
         self.mu = None
         self.mu_std = None
+
+        # fit results
+        self.initial_guess = None
+        self.bootstrap_estimation = None
+        self.fit_result = None
+
+        # flag depicting whether the fit results are up to date
+        self.fit_completed = False
 
     def load_xlsx(self):
         """Opens a file dialog to open fitting data and plots it."""
@@ -68,6 +75,7 @@ class CalibrationWindowLogic(QObject):
                 "contain at least one data sheet.")
                 return
 
+            # check if shapes match
             for sheet_name, (x_data, y_data, y_err_std) in sheet_data.items():
                 if not (x_data.shape == y_data.shape == y_err_std.shape):
                     QMessageBox.warning(self.ui, "Warning", ".Each xlsx sheet" \
@@ -75,40 +83,55 @@ class CalibrationWindowLogic(QObject):
                     "Lx/Tx and Error).")
                     return
 
+            # clear input data dicts
             self.x_data_dict.clear()
             self.y_data_dict.clear()
             self.y_err_std_dict.clear()
             self.t_exposure_dict.clear()
             self.plot_color_dict.clear()
-            self.order = None
-            self.order_std = None
-            self.sigma_phi = None
-            self.sigma_phi_std = None
-            self.mu = None
-            self.mu_std = None
 
+            # clear calibration parameter table results and plot
+            self.ui.calibration_parameter_table.clear()
             self.ui.plot_widget.clear()
 
+            # make calibration fit results outdated when new data is loaded
+            self.fit_completed = False
+
+            # get number of colors in the color cycle
             num_colors = len(style_tokens.plot.color_cycle)
+
             for i, sheet_name in enumerate(sheet_data.keys()):
+                # fill input data dicts with new data
                 self.x_data_dict[sheet_name] = sheet_data[sheet_name][0]
                 self.y_data_dict[sheet_name] = sheet_data[sheet_name][1]
                 self.y_err_std_dict[sheet_name] = sheet_data[sheet_name][2]
 
+                # cycle through the colors in the plot colors
                 color = style_tokens.plot.color_cycle[i % num_colors]
+
+                # if there is only one sample use the single scatter color
                 if len(sheet_data.keys()) == 1:
                     color = style_tokens.plot.single_scatter_color
                 self.plot_color_dict[sheet_name] = color
 
+                # scatter the new data points 
                 self.ui.plot_widget.scatter(self.x_data_dict[sheet_name],
                     self.y_data_dict[sheet_name],
                     self.y_err_std_dict[sheet_name],
                     name=sheet_name, color=color)
 
+            # display the calibration samples in the table
             self.ui.calibration_samples_table.update_calibration_samples(
                 list(sheet_data.keys()))
 
     def apply_calibration_results(self):
+        """
+        Applies the calibration results.
+
+        Fills the input parameter table in the main window with the calibration
+        results and closes the calibration window.
+        """
+
         if self.fit_runner is not None:
             QMessageBox.warning(self.ui, "Warning",
                 "Wait until the current calibration has finished.")
@@ -133,12 +156,19 @@ class CalibrationWindowLogic(QObject):
             QMessageBox.warning(self.ui, "Warning", "No data loaded.")
             return
 
+        # get order from the calibration parameter table
         self.order = self.ui.calibration_parameter_table.get_order()
         self.order_std = self.ui.calibration_parameter_table.get_order_std()
         # decrement order by 1, see fitting engine models
         self.order -= 1.0
 
-        # check order lies within the allowed bounds
+        # get the fit type and quality from the ui combo boxes
+        fit_type_select = self.ui.fit_type_select.get_text()
+        self.fit_type = self.FIT_TYPE_OPTIONS[fit_type_select]
+        fit_quality_select = self.ui.fit_quality_select.get_text()
+        self.fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
+
+        # check that order lies within the allowed bounds
         lower_order, upper_order = self.engine.param_bounds.val.order
         if not (lower_order <= self.order <= upper_order):
             QMessageBox.warning(self.ui, "Warning", 
@@ -146,10 +176,10 @@ class CalibrationWindowLogic(QObject):
                 f"{lower_order + 1} and {upper_order + 1}")
             return
 
+        # get the exposure times for all calibration samples and check that they
+        # lie within the allwoed bounds
         lower_t_exposure, upper_t_exposure \
             = self.engine.param_bounds.val.t_exposure_1
-
-        self.t_exposure_dict.clear()
         for sample_name in self.x_data_dict:
             t_exposure \
                 = self.ui.calibration_samples_table.get_value(sample_name)
@@ -167,12 +197,6 @@ class CalibrationWindowLogic(QObject):
 
         self.ui.progress_bar.setVisible(True)
         self.ui.status_label.setVisible(True)
-
-        # get the fit type and quality from the ui combo boxes
-        fit_type_select = self.ui.fit_type_select.get_text()
-        self.fit_type = self.FIT_TYPE_OPTIONS[fit_type_select]
-        fit_quality_select = self.ui.fit_quality_select.get_text()
-        self.fit_quality = self.FIT_QUALITY_OPTIONS[fit_quality_select]
 
         # combine individual calibration samples into one large dataset
         x_data_combined = np.concatenate(list(self.x_data_dict.values()))
@@ -195,7 +219,8 @@ class CalibrationWindowLogic(QObject):
             "mu": self.engine.param_bounds.val.mu
         }
 
-        # run fit 
+        # run calibration fit
+
         self.fit_runner = FitRunner(self.engine, x_data_combined,
             y_data_combined, y_err_std_combined, self.engine.models.expo,
             self.known_params, self.bounds, self.fit_type,
@@ -212,12 +237,12 @@ class CalibrationWindowLogic(QObject):
 
         self.fit_runner.start()
 
-
     def on_fit_finished(self):
-        """Function that is called when a fit finishes."""
+        """Function that is called when a calibration fit finishes."""
 
-        # save fit result
+        # save calibration fit result and set fit_completed flag
         self.fit_result = self.fit_runner.fit_result
+        self.fit_completed = True
 
         # check that the fit results are reliable
         if not self.fit_result.success:
@@ -230,38 +255,41 @@ class CalibrationWindowLogic(QObject):
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
 
+        # set fit parameter results in the result table
         result_table = self.ui.calibration_parameter_table
-
         self.sigma_phi = self.fit_result.best_fit["sigma_phi"]
         self.mu = self.fit_result.best_fit["mu"]
-
         result_table.set_sigma_phi(self.sigma_phi)
         result_table.set_mu(self.mu)
 
+        # set standard deviations and posterior samples in the result table
+        # (only after mcmc fit)
         if self.fit_type == "mcmc":
-            self.sigma_phi_std = self.fit_result.robust_std["sigma_phi"]
-            self.mu_std = self.fit_result.robust_std["mu"]
+            self.sigma_phi_std = self.fit_result.std["sigma_phi"]
+            self.mu_std = self.fit_result.std["mu"]
 
             result_table.set_sigma_phi_std(self.sigma_phi_std)
             result_table.set_mu_std(self.mu_std)
 
-            # set posterior samples to be connected with double click
             result_table.set_posterior_samples_sigma_phi(
                 self.fit_result.samples["sigma_phi"])
             result_table.set_posterior_samples_mu(self.fit_result.samples["mu"])
 
+        # plot fitted curves for each sample
         for sample_name in self.x_data_dict:
             x_data = self.x_data_dict[sample_name]
             t_exposure = self.t_exposure_dict[sample_name]
 
             x_data_fit = np.linspace(np.min(x_data), np.max(x_data), 200)
-
             y_data_fit = self.engine.models.expo(x_data_fit,
                 self.order, self.sigma_phi, self.mu, t_exposure)
 
+            # use the same color as the scatter data for multiple fits or
+            # the default plot color for a single fit
             color = self.plot_color_dict[sample_name]
             if len(self.x_data_dict.keys()) == 1:
                 color = style_tokens.plot.single_plot_color
+
             self.ui.plot_widget.plot(x_data_fit, y_data_fit, color=color)
 
     def on_fit_failed(self, message):
@@ -279,3 +307,21 @@ class CalibrationWindowLogic(QObject):
         """Destroys the current fit runner."""
 
         self.fit_runner = None
+
+    def export_mcmc_fit(self):
+        """Opens a filed dialog to save the fit result datails."""
+
+        if not self.fit_completed or self.fit_type != "mcmc":
+            QMessageBox.warning(self.ui, "Warning",
+                "No MCMC calibration fit completed.")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self.ui,
+            caption="Save fit result as Excel file", dir="",
+            filter="Excel Workbook (*.xlsx)")
+        if not path:
+            return None
+        if not path.endswith(".xlsx"):
+            path += ".xlsx"
+
+        write_xlsx(path)

@@ -12,8 +12,9 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
     
     A wrapper function for the bayesian fit, that estimates free parameter
     priors using the bootstrap fit, if not already provided. It also exposes
-    more straightforward quality settings, namely 'low', 'medium' and 'high'
-    that affect the quality of the results and run-time.
+    more straightforward quality settings, namely 'low', 'medium', 'high'
+    and 'very high' that affect the quality of the results and the run-time. See
+    fit_quality_settings for details.
 
     Args:
         x_data (numpy.ndarray): The x-values of the data points.
@@ -54,7 +55,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             See documentation for details.
     """
 
-    # extract variables from the fit quality dataclass
+    # extract quality variables from the fit quality dataclass
     num_restarts = fit_quality.num_restarts
     n_bootstrap = fit_quality.n_bootstrap
     draws = fit_quality.draws
@@ -63,6 +64,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
 
     # if no free parameter priors given get the estimates with a bootstrap fit
     if not free_params_priors:
+        # update status text for gui
         if status_callback:
             status_callback("Finding initial guess...")
 
@@ -73,6 +75,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             only_positive=only_positive, num_restarts=num_restarts,
             workers=workers)
 
+        # update status text for gui
         if status_callback:
             status_callback("Estimating priors with Bootstrap...")
 
@@ -86,6 +89,7 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         if not bootstrap_fit_result.success:
             raise RuntimeError("Bootstrap run was not successful.")
 
+        # use bootstrap results as bayesian priors for the mcmc fit
         free_params_priors = {}
         for param_name, param_best_fit in bootstrap_fit_result.best_fit.items():
             lower, upper = bootstrap_fit_result.confidence_interval[param_name]
@@ -93,12 +97,14 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
             # For gaussian, symmetric distributions this is equivalent to
             # doubling the standard deviation, for non symmetric distributions
             # the larger distance is taken to ensure a conservative guess.
-            # If bootstrap gives far too large confidence intervals then a
-            # maximum relative standard deviation of 1 is used.
+            # If bootstrap gives far too large confidence intervals because of
+            # numerical instability then a maximum relative standard deviation
+            # of 1 is used, to ensure a very conservative guess.
             prior_std = max(param_best_fit - lower, upper - param_best_fit)
             prior_std = min(prior_std, param_best_fit)
             free_params_priors[param_name] = (param_best_fit, prior_std)
 
+    # update status text for gui
     if status_callback:
         status_callback("Running MCMC Bayesian fit...")
 
@@ -108,5 +114,6 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
         known_params_err_std=known_params_err_std, only_positive=only_positive,
         target_accept=target_accept, seed=seed, verbose=verbose)
 
-    # return the result object containing posterior samples and fit statistics
+    # initial guess, bootstrap fit results and the result object containing
+    # posterior samples and fit statistics
     return initial_guess, bootstrap_fit_result, bayesian_fit_result

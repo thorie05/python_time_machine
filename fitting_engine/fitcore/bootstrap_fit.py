@@ -14,16 +14,16 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     calculate the least squares best fit of the model through the datapoints and
     more importantly estimate the uncertainty of the calculated values. It
     makes use of the bootstrap method, so it internally calls the easy fit
-    function n times, making it quite time-consuming. It works on all cores in
+    function n times, making it fairly time-intensive. It works on all cores in
     parallel. If the known_params dict contains arrays with separate values of
     the parameters for each data point, no perturbation will be applied, meaning
     the parameter is treated as fixed with a 100% certainty for every individual
-    data point.The results for the fitted parameters are slightly more accurate
+    data point. The results for the fitted parameters are slightly more accurate
     than the results obtained by only using the easy fit function, but only if n
     is sufficiently large enough (e.g. at least 1_000, 10_000 is best). The
     bayesian fit is even more accurate than the bootstrap fit, so it should
     always be used for reliable results. However, the bootstrap fit can serve as
-    an estimator.
+    an estimator, as used in full_fit for estimating Bayesian priors.
 
     Args:
         n (int): Number of bootstrap samples.
@@ -73,9 +73,9 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
         for param_name, value in res.items():
             bootstrap_samples[param_name].append(value)
 
-    best_fit_dict = {}
-    confidence_interval_dict = {}
-    robust_std_dict = {}
+    best_fit = {}
+    confidence_interval = {}
+    std = {}
 
     # calculate the number of successful bootstrap samples
     try:
@@ -96,31 +96,28 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             # if theoretically all bootstrap iterations fail for a parameter
             # return None for every metric
             if len(values) == 0:
-                best_fit_dict[param_name] = None
-                confidence_interval_dict[param_name] = None
-                robust_std_dict[param_name] = None
+                best_fit[param_name] = None
+                confidence_interval[param_name] = None
+                std[param_name] = None
                 continue
 
             # median instead of mean for fit results as it can be more stable
-            best_fit_dict[param_name] = np.median(values)
+            best_fit[param_name] = np.median(values)
 
             # calculate lower and upper percentile for 95% confidence range
             # instead of standard deviation since the error can be asymetric
             lower_percentile = np.percentile(values, 2.5)
             upper_percentile = np.percentile(values, 97.5)
-            confidence_interval_dict[param_name] = \
+            confidence_interval[param_name] = \
                 (float(lower_percentile), float(upper_percentile))
 
-            # calculate robust standard deviation calculated from the
-            # percentiles instead of the normal way to avoid obscuring the
-            # results with unplausible outliers
-            robust_std_dict[param_name] = float((np.percentile(values, 84.13) \
-                - np.percentile(values, 15.87))) / 2
+            # calculate the standard deviation of the bootstrap samples
+            std[param_name] = np.std(values)
 
     # construct fit result dataclass to be returned
-    fit_result = FitResult(success=success, best_fit=best_fit_dict,
-        confidence_interval=confidence_interval_dict,
-        robust_std=robust_std_dict, samples=bootstrap_samples)
+    fit_result = FitResult(success=success, best_fit=best_fit,
+        confidence_interval=confidence_interval,
+        std=std, samples=bootstrap_samples)
 
     return fit_result
 

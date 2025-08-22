@@ -19,8 +19,8 @@ class FitResult:
         confidence_interval (dict(str: tuple(float, float))): Dict mapping fit
             parameter names to tuples with the lower and upper limits of 95%
             confidence intervals.
-        robust_std (dict(str: float)): Dict mapping fit parameter names to their
-            robust standard deviation calculated from percentiles.
+        std (dict(str: float)): Dict mapping fit parameter names to the standard
+            deviation of their samples / probability distribution.
         samples (dict(str: list(float))): Dict mapping fit parameter names to
             lists of all bootstrap samples.
     """
@@ -28,5 +28,5 @@ class FitResult:
     success: bool | None = None
     best_fit: dict | None = None
     confidence_interval: dict | None = None
-    robust_std: dict | None = None
+    std: dict | None = None
     samples: dict | None = None

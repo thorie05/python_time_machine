@@ -11,37 +11,35 @@ from ..shared.style_config import style_tokens
 
 class MainWindow(QWidget):
     """
-    The application's main window.
+    The main window widget.
 
-    Hosts the primary UI elements and connects them to the application logic,
-    which is factored out in its own MainWindowLogic class.
+    Hosts the widgets and connects them to logic from main_window_logic.
     """
 
     def __init__(self, engine):
         super().__init__()
         self.setObjectName("MainWindow")
 
+        # store logic methods to connect them with widgets
         self.logic = MainWindowLogic(self, engine)
 
-        # functional widgets are stored as attributes for later access
+        # calibration window instance
         self.calibration_window = None 
 
+        # functional widgets are stored as attributes for later access
         self.input_parameter_table = InputParameterTable(self.logic.engine)
         self.result_table = FittingResultTable()
         self.plot_widget = Plot()
-
         self.model_select = ComboBox("Select model:",
             list(self.logic.MODEL_SELECT_OPTIONS.keys()))
         self.fit_quality_select = ComboBox("Select fit quality:",
             list(self.logic.FIT_QUALITY_OPTIONS.keys()))
         self.fit_type_select = ComboBox("Select fit type:",
             self.logic.FIT_TYPE_OPTIONS)
-
         self.calibration_button = Button("Calibrate")
         self.load_button = Button("Choose .xlsx data")
         self.run_fit_button = Button("Run fit")
         self.export_button = Button("Export MCMC results")
-
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
 
@@ -125,29 +123,23 @@ class MainWindow(QWidget):
         # set medium as default value for fit quality
         self.fit_quality_select.combo_box.setCurrentIndex(1)
 
-        # run fit and export button row 
+        # run fit and export buttons in a row
         run_button_row = QHBoxLayout()
         run_button_row.setAlignment(Qt.AlignLeft)
-
         run_button_row.addWidget(self.run_fit_button)
         self.run_fit_button.clicked.connect(self.logic.run_fit)
-
         run_button_row.addWidget(self.export_button)
         self.export_button.clicked.connect(self.logic.export_mcmc_fit)
-
         button_column.addLayout(run_button_row)
 
         # loading bar and label
         progress_layout = QVBoxLayout()
         progress_layout.setSpacing(2) # smaller spacing between bar and label
         progress_layout.setContentsMargins(0, 0, 0, 0)
-
         self.progress_bar.setVisible(False)
         progress_layout.addWidget(self.progress_bar)
-
         self.status_label.setVisible(False)
         progress_layout.addWidget(self.status_label)
-
         button_column.addLayout(progress_layout)
 
         # add stretch so that the buttons stack from top instead of spacing
@@ -159,6 +151,8 @@ class MainWindow(QWidget):
         return bottom_row
     
     def closeEvent(self, event):
+        """Forces the close of the calibration if the main window is closed."""
+
         if self.calibration_window is not None:
             self.calibration_window.force_close()
         super().closeEvent(event)

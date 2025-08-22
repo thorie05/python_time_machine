@@ -116,22 +116,17 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
     # extract results
     best_fit = {}
     confidence_interval = {}
-    robust_std = {}
+    std = {}
     posterior_samples = {}
 
     for param_name in free_params_priors:
         samples = trace.posterior[param_name].values.flatten()
-        median = np.median(samples)
         lower, upper = np.percentile(samples, [2.5, 97.5])
 
-        # calculate standard deviation from percentiles to make it more robust
-        # and less dependent on outliers
-        std = (np.percentile(samples, 84.13) \
-            - np.percentile(samples, 15.87)) / 2
-
-        best_fit[param_name] = float(median)
+        best_fit[param_name] = float(np.median(samples))
         confidence_interval[param_name] = (float(lower), float(upper))
-        robust_std[param_name] = float(std)
+        # plain standard deviation of the samples (susceptible to outliers)
+        std[param_name] = float(np.std(samples))
         posterior_samples[param_name] = samples
 
     # fit summary
@@ -147,7 +142,7 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
     success = rhat_ok and ess_ok and no_divergences
 
     result = FitResult(success=success, best_fit=best_fit,
-        confidence_interval =confidence_interval, robust_std=robust_std,
+        confidence_interval =confidence_interval, std=std,
         samples=posterior_samples)
 
     return result

@@ -85,6 +85,8 @@ def get_initial_guess(x_data, y_data, model_function, known_params, bounds=None,
 
 
 class ObjectiveFunction:
+    """Objective function class."""
+
     def __init__(self, model_function, x_data, y_data, known_params,
         free_param_names, y_err_std):
         self.model_function = model_function

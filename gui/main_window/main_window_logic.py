@@ -2,7 +2,7 @@ from inspect import signature
 
 import numpy as np
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QTextEdit
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ..calibration_window.calibration_window import CalibrationWindow
 from ..shared.basic_widgets import MessageBoxFitCrash
@@ -14,10 +14,11 @@ from ..shared.style_config import param_names_unicode, style_tokens
 class MainWindowLogic(QObject):
     def __init__(self, main_window, engine):
         super().__init__()
-        self.ui = main_window # store main window class to access ui elements
-        self.engine = engine
 
-        self.calibration_window = None
+        # store main window class to access ui elements
+        self.ui = main_window
+
+        self.engine = engine
         self.fit_runner = None
 
         self.MODEL_SELECT_OPTIONS = {
@@ -45,7 +46,6 @@ class MainWindowLogic(QObject):
         self.known_params = None
         self.known_params_err_std = None
         self.bounds = None
-
         self.model_function = None
         self.fit_type = None
         self.fit_quality = None 
@@ -54,6 +54,9 @@ class MainWindowLogic(QObject):
         self.initial_guess = None
         self.bootstrap_estimation = None
         self.fit_result = None
+
+        # flag depicting whether the fit results are up to date
+        self.fit_completed = False
 
     def open_calibration_window(self):
         """Opens the calibration window."""
@@ -64,15 +67,15 @@ class MainWindowLogic(QObject):
                 "Wait until the current fit has finished.")
             return
 
+        # create a new instance
         if self.ui.calibration_window is None:
             self.ui.calibration_window = CalibrationWindow(self.engine,
                 self.apply_calibration_results)
             self.ui.calibration_window.setAttribute(Qt.WA_DeleteOnClose, True)
-
             self.ui.calibration_window.destroyed.connect(
                 lambda _=None: setattr(self.ui, "calibration_window", None))
-
             self.ui.calibration_window.show()
+        # show the existing instance
         else:
             self.ui.calibration_window.raise_()
             self.ui.calibration_window.activateWindow()
@@ -110,7 +113,10 @@ class MainWindowLogic(QObject):
             self.ui.result_table.clear()
             self.ui.plot_widget.clear()
 
-            # scatter the new datapoints
+            # make fit results outdated when new data is loaded
+            self.fit_completed = False
+
+            # scatter the new data points
             self.ui.plot_widget.scatter(self.x_data, self.y_data,
                 y_err_data=self.y_err_std,
                 color=style_tokens.plot.single_scatter_color)
@@ -195,9 +201,6 @@ class MainWindowLogic(QObject):
                         f"between {lower_std} and {upper_std}")
                     return
 
-        # hide export fit button
-        self.ui.export_button.setVisible(False)
-
         # clear result table and previous fitted function
         self.ui.result_table.clear()
         self.ui.plot_widget.clear_only_plot()
@@ -214,7 +217,8 @@ class MainWindowLogic(QObject):
             in self.engine.param_bounds.val.asdict().items() \
             if param_name in free_params}
 
-        # run fit 
+        # run fit
+
         self.fit_runner = FitRunner(self.engine, self.x_data,
             self.y_data, self.y_err_std, self.model_function, self.known_params,
             self.bounds, self.fit_type,
@@ -234,8 +238,9 @@ class MainWindowLogic(QObject):
     def on_fit_finished(self):
         """Function that is called when a fit finishes."""
 
-        # save fit result
+        # save fit result and set fit_completed flag
         self.fit_result = self.fit_runner.fit_result
+        self.fit_completed = True
 
         # check that the fit results are reliable
         if not self.fit_result.success:
@@ -247,12 +252,6 @@ class MainWindowLogic(QObject):
         # hide progres bar and status label
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
-
-        # show export fit button only on for mcmc fit
-        if self.fit_result.samples:
-            self.ui.export_button.setVisible(True)
-
-        print(self.fit_result) # debug
 
         # set fit parameter results in the result table
         for param_name, value in self.fit_result.best_fit.items():
@@ -306,7 +305,9 @@ class MainWindowLogic(QObject):
         self.fit_runner = None
 
     def export_mcmc_fit(self):
-        if self.fit_type != "mcmc":
+        """Opens a filed dialog to save the fit result datails."""
+
+        if not self.fit_completed or self.fit_type != "mcmc":
             QMessageBox.warning(self.ui, "Warning", "No MCMC fit completed.")
             return
 
@@ -321,6 +322,8 @@ class MainWindowLogic(QObject):
         write_xlsx(path)
 
     def apply_calibration_results(self, sigma_phi, sigma_phi_std, mu, mu_std):
+        """Takes the calibration results and saves them as input parameters."""
+
         self.ui.input_parameter_table.set_value("sigma_phi", sigma_phi)
         self.ui.input_parameter_table.set_std("sigma_phi", sigma_phi_std)
         self.ui.input_parameter_table.set_value("mu", mu)

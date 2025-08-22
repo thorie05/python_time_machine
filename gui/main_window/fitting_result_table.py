@@ -31,7 +31,7 @@ class FittingResultTable(Table):
                 HeaderCell("Result"),
                 HeaderCell("95% Confidence Interval"),
                 HeaderCell("Event"),
-                HeaderCell("Age (BP)"),
+                HeaderCell("Age"),
                 HeaderCell("95% Confidence Interval")
             ],
             [
@@ -90,6 +90,14 @@ class FittingResultTable(Table):
                 + f"{round(interval[1], self.ROUND_TO_DIGITS)}"
         self.confidence_interval_cells[param_name].setText(label_text)
 
+    def clear(self):
+        """Clears all result cells in the table."""
+
+        for param_name in self.RESULT_PARAMETER_NAMES:
+            self.result_cells[param_name].setText("")
+            self.result_cells[param_name].disconnect_double_click()
+            self.confidence_interval_cells[param_name].setText("")
+
     def set_posterior_samples(self, param_name, samples):
         """Sets the posterior samples for a given paramter."""
 
@@ -99,14 +107,6 @@ class FittingResultTable(Table):
         else:
             func = partial(self.show_histogram, samples, param_name)
             cell.connect_double_click(func)
-
-    def clear(self):
-        """Clears all result cells in the table."""
-
-        for param_name in self.RESULT_PARAMETER_NAMES:
-            self.result_cells[param_name].setText("")
-            self.result_cells[param_name].disconnect_double_click()
-            self.confidence_interval_cells[param_name].setText("")
 
     def show_histogram(self, samples, title):
         """Opens a window with a histogram of the posterior samples."""

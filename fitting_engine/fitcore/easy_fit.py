@@ -11,7 +11,7 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     calculate the least squares best fit of the model through the datapoints. It
     uses scipy's least_square function. Different known parameter values for
     individual data points are allowed, which is useful for fitting multiple
-    calibration samples with different exposure times at once.
+    calibration samples with different exposure times at once for example.
 
     Args:
         x_data (numpy.ndarray): The x-values of the data points.
