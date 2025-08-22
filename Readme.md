@@ -78,5 +78,3 @@ The GUI consists of two windows: The main window and the calibration window.
 Each window has its own folder. There is also a `shared` folder with
 functionality that is used in both windows. Style settings can be tweaked in
 `style_config.py` and `style.qss`.
-
-** 
