@@ -52,7 +52,7 @@ class MainWindowLogic(QObject):
 
         # fit results
         self.initial_guess = None
-        self.bootstrap_estimation = None
+        self.free_params_priors = None
         self.fit_result = None
 
         # flag depicting whether the fit results are up to date
@@ -238,8 +238,12 @@ class MainWindowLogic(QObject):
     def on_fit_finished(self):
         """Function that is called when a fit finishes."""
 
-        # save fit result and set fit_completed flag
+        # save fit results
+        self.initial_guess = self.fit_runner.initial_guess
+        self.free_params_priors = self.fit_runner.free_params_priors
         self.fit_result = self.fit_runner.fit_result
+
+        # set fit completed flag
         self.fit_completed = True
 
         # check that the fit results are reliable
@@ -319,7 +323,11 @@ class MainWindowLogic(QObject):
         if not path.endswith(".xlsx"):
             path += ".xlsx"
 
-        write_xlsx(path)
+        write_xlsx(path, self.model_function, self.fit_quality, self.x_data,
+            self.y_data, self.y_err_std, self.bounds, self.initial_guess,
+            self.known_params, self.known_params_err_std,
+            self.free_params_priors, self.fit_result.best_fit,
+            self.fit_result.confidence_interval, self.fit_result.std)
 
     def apply_calibration_results(self, sigma_phi, sigma_phi_std, mu, mu_std):
         """Takes the calibration results and saves them as input parameters."""

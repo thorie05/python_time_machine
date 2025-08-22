@@ -79,7 +79,7 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
     """
 
     # get initial condition for the luminescence profile
-    l_initial_condition = expo(x, order, sigma_phi, mu, t_exposure_1)
+    l_initial_condition = expo(x, order, sigma_phi, mu, t_exposure_1, math=math)
 
     # burial works same for single and general order kinetics
     return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_1)
@@ -110,7 +110,7 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
     """
 
     l_initial_condition = expo_buri(x, order, sigma_phi, mu, f, t_exposure_1,
-        t_burial_1)
+        t_burial_1, math=math)
 
     order = math.maximum(order, SINGLE_ORDER_VAL)
 
@@ -142,6 +142,6 @@ def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
     """
 
     l_initial_condition = expo_buri_expo(x, order, sigma_phi, mu, f,
-        t_exposure_1, t_burial_1, t_exposure_2)
+        t_exposure_1, t_burial_1, t_exposure_2, math=math)
 
     return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_2)

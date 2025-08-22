@@ -26,9 +26,9 @@ class FitRunner(QObject):
         self.known_params_err_std = known_params_err_std
         self.fit_quality = fit_quality
 
-        # fit result
+        # fit results
         self.initial_guess = None
-        self.bootstrap_estimation = None
+        self.free_params_priors = None
         self.fit_result = None
 
         # set up threads
@@ -52,7 +52,7 @@ class FitRunner(QObject):
         try:
             if self.fit_type == "mcmc":
                 # run full fit
-                self.initial_guess, self.bootstrap_estimation, self.fit_result \
+                self.initial_guess, self.free_params_priors, self.fit_result \
                     = self.engine.full_fit(self.x_data, self.y_data,
                     self.y_err_std, self.model_function, self.known_params,
                     known_params_err_std=self.known_params_err_std,
@@ -75,6 +75,7 @@ class FitRunner(QObject):
                     y_err_std=self.y_err_std)
 
             self.finished.emit()
+
         except Exception:
             tb = traceback.format_exc()
             self.failed.emit(tb)

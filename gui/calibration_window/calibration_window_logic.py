@@ -46,9 +46,15 @@ class CalibrationWindowLogic(QObject):
         self.mu = None
         self.mu_std = None
 
+        # combined calibration samples
+        self.x_data_combined = None
+        self.y_data_combined = None
+        self.y_err_std_combined = None
+        self.t_exposure_combined = None
+
         # fit results
         self.initial_guess = None
-        self.bootstrap_estimation = None
+        self.free_params_priors = None
         self.fit_result = None
 
         # flag depicting whether the fit results are up to date
@@ -199,12 +205,12 @@ class CalibrationWindowLogic(QObject):
         self.ui.status_label.setVisible(True)
 
         # combine individual calibration samples into one large dataset
-        x_data_combined = np.concatenate(list(self.x_data_dict.values()))
-        y_data_combined = np.concatenate(list(self.y_data_dict.values()))
-        y_err_std_combined = np.concatenate(list(self.y_err_std_dict.values()))
+        self.x_data_combined = np.concatenate(list(self.x_data_dict.values()))
+        self.y_data_combined = np.concatenate(list(self.y_data_dict.values()))
+        self.y_err_std_combined = np.concatenate(list(self.y_err_std_dict.values()))
 
         # each datapoint gets an individual t_exposure value for the global fit
-        t_exposure_combined = np.concatenate(
+        self.t_exposure_combined = np.concatenate(
             [np.full(len(arr), t_exposure) for arr, t_exposure in \
             zip(self.x_data_dict.values(), self.t_exposure_dict.values())])
 
@@ -212,7 +218,7 @@ class CalibrationWindowLogic(QObject):
         # can differ between datapoints because multiple calibration datasets
         # can be used
         self.known_params = {"order": self.order,
-            "t_exposure_1": t_exposure_combined}
+            "t_exposure_1": self.t_exposure_combined}
         self.known_params_err_std = {"order": self.order_std}
         self.bounds = {
             "sigma_phi": self.engine.param_bounds.val.sigma_phi,
@@ -221,8 +227,8 @@ class CalibrationWindowLogic(QObject):
 
         # run calibration fit
 
-        self.fit_runner = FitRunner(self.engine, x_data_combined,
-            y_data_combined, y_err_std_combined, self.engine.models.expo,
+        self.fit_runner = FitRunner(self.engine, self.x_data_combined,
+            self.y_data_combined, self.y_err_std_combined, self.engine.models.expo,
             self.known_params, self.bounds, self.fit_type,
             known_params_err_std=self.known_params_err_std,
             fit_quality=self.fit_quality)
@@ -240,8 +246,12 @@ class CalibrationWindowLogic(QObject):
     def on_fit_finished(self):
         """Function that is called when a calibration fit finishes."""
 
-        # save calibration fit result and set fit_completed flag
+        # save calibration fit results
+        self.initial_guess = self.fit_runner.initial_guess
+        self.free_params_priors = self.fit_runner.free_params_priors
         self.fit_result = self.fit_runner.fit_result
+
+        # set fit completed flag
         self.fit_completed = True
 
         # check that the fit results are reliable
@@ -324,4 +334,9 @@ class CalibrationWindowLogic(QObject):
         if not path.endswith(".xlsx"):
             path += ".xlsx"
 
-        write_xlsx(path)
+        write_xlsx(path, self.engine.models.expo, self.fit_quality,
+            self.x_data_combined, self.y_data_combined, self.y_err_std_combined,
+            self.bounds, self.initial_guess, self.known_params,
+            self.known_params_err_std, self.free_params_priors,
+            self.fit_result.best_fit, self.fit_result.confidence_interval,
+            self.fit_result.std)

@@ -116,4 +116,4 @@ def full_fit(x_data, y_data, y_err_std, model_function, known_params,
 
     # initial guess, bootstrap fit results and the result object containing
     # posterior samples and fit statistics
-    return initial_guess, bootstrap_fit_result, bayesian_fit_result
+    return initial_guess, free_params_priors, bayesian_fit_result
