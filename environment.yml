@@ -1,0 +1,10 @@
+name: python_time_machine
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - joblib
+  - pymc
+  - openpyxl
