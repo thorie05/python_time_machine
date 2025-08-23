@@ -56,7 +56,7 @@ fit.
   the priors are not too tight, since this would bias the result. Therefore,
   the standard deviation for every fit parameter of the bootstrap result is
   doubled to always ensure conservative guesses, but still constrain the MCMC
-  search space. Since the bootstrap fit results can sometimes blow up, a
+  search space. Since the bootstrap fit results can sometimes blow up, the
   relative standard deviation is capped at 1 to prevent unreasonably wide
   priors. These values are not necessarily perfect and could benefit from
   further tweaking. If the priors are too conservative, the MCMC fit could take
@@ -112,8 +112,8 @@ functionality that is used in both windows. Style settings can be tweaked in
   parameter uncertainties. However, the calibration results for `sigma_phi` and
   `mu` do not follow a normal distribution, especially not for only few
   calibration samples. In this case, `bayesian_fit` would assume known parameter
-  distributions that don't resemble the actual results, which will lead to
-  incorrect results.
+  distributions that don't resemble the actual calibration results, which will
+  lead to incorrect fitting results.
 
 * The order parameter is subtacted by 1 in the fitting engine, meaning an order
   of 0.0 in the engine is equivalent to the first-order model or an order of

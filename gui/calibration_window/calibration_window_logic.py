@@ -207,7 +207,8 @@ class CalibrationWindowLogic(QObject):
         # combine individual calibration samples into one large dataset
         self.x_data_combined = np.concatenate(list(self.x_data_dict.values()))
         self.y_data_combined = np.concatenate(list(self.y_data_dict.values()))
-        self.y_err_std_combined = np.concatenate(list(self.y_err_std_dict.values()))
+        self.y_err_std_combined = np.concatenate(
+            list(self.y_err_std_dict.values()))
 
         # each datapoint gets an individual t_exposure value for the global fit
         self.t_exposure_combined = np.concatenate(
@@ -228,9 +229,9 @@ class CalibrationWindowLogic(QObject):
         # run calibration fit
 
         self.fit_runner = FitRunner(self.engine, self.x_data_combined,
-            self.y_data_combined, self.y_err_std_combined, self.engine.models.expo,
-            self.known_params, self.bounds, self.fit_type,
-            known_params_err_std=self.known_params_err_std,
+            self.y_data_combined, self.y_err_std_combined,
+            self.engine.models.expo, self.known_params, self.bounds,
+            self.fit_type, known_params_err_std=self.known_params_err_std,
             fit_quality=self.fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
