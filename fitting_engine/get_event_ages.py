@@ -33,7 +33,7 @@ def get_event_ages(param_names, posterior_samples):
         # cumulatively add the timespans belonging together from each sample
         cumulative_sum += posterior_samples[param_name]
         median = np.median(cumulative_sum)
-        lower, upper = np.percentile(cumulative_sum, [2.5, 97.5])
+        lower, upper = np.percentile(cumulative_sum, [15.865, 84.135])
 
         new_param_name = "age_" + param_name[2:]
         event_ages[new_param_name] \

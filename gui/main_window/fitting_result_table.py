@@ -29,10 +29,10 @@ class FittingResultTable(Table):
             [
                 HeaderCell("Parameter"),
                 HeaderCell("Result"),
-                HeaderCell("95% Confidence Interval"),
+                HeaderCell("68% Confidence Interval"),
                 HeaderCell("Event"),
                 HeaderCell("Age"),
-                HeaderCell("95% Confidence Interval")
+                HeaderCell("68% Confidence Interval")
             ],
             [
                 IndexCell(param_names_unicode.t_exposure_1),

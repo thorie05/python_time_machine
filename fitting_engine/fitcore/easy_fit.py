@@ -5,7 +5,7 @@ from .fit_result import FitResult
 
 def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     y_err_std=None, only_positive=False):
-    """A fast least square fitting function without error estimation.
+    """A fast least square fitting function without rigorous error estimation.
 
     A function that takes datapoints and a mathematical model function to
     calculate the least squares best fit of the model through the datapoints. It
@@ -72,8 +72,32 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     try:
         result = least_squares(residuals, x0=initial_guess_array, bounds=bounds,
             max_nfev=10_000,)
+
+        # compute parameter uncertainties
+        res_jacobian = result.jac
+        residual_vec = result.fun
+
+        n = len(residual_vec)
+        p = len(result.x)
+        dof = max(0, n - p)
+
+        if y_err_std is None:
+            sigma2 = np.sum(residual_vec**2) / dof
+        else:
+            sigma2 = 1.0
+
+        cov = sigma2 * np.linalg.pinv(res_jacobian.T @ res_jacobian)
+        param_std = np.sqrt(np.diag(cov))
+
         fitted_params = dict(zip(free_param_names, result.x))
+        param_std_dict = dict(zip(free_param_names, param_std))
+
+        # calculate rmse (deviation of fitted line to the datapoints)
+        y_data_fit = model_function(x_data, **known_params, **fitted_params)
+        rmse = np.sqrt(np.mean((y_data_fit - y_data)**2))
+
     except RuntimeError:
         return FitResult(success=False)
 
-    return FitResult(success=True, best_fit=fitted_params)
+    return FitResult(success=True, best_fit=fitted_params, std=param_std_dict,
+        rmse=rmse)

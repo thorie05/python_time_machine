@@ -1,6 +1,7 @@
 from inspect import signature
 
 import numpy as np
+from scipy.optimize import brentq
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -108,6 +109,10 @@ class MainWindowLogic(QObject):
                 "consist of three columns of the same height (Depth, Lx/Tx "
                 "and Error).")
                 return
+
+            # set loaded filename
+            display_filename = filename.replace("\\", "/").split("/")[-1]
+            self.ui.filename_label.setText(display_filename)
 
             # clear result table and plot
             self.ui.result_table.clear()
@@ -323,11 +328,23 @@ class MainWindowLogic(QObject):
         if not path.endswith(".xlsx"):
             path += ".xlsx"
 
+        # add 1 again to order before exporting
+        export_known_params = self.known_params.copy()
+        export_known_params["order"] += 1
+
+        # find bleaching depth as 50% value for single exposure fit
+        bleaching_depth = None
+        if self.model_function == self.engine.models.expo:
+            bleaching_depth = brentq(lambda x: self.model_function(x,
+                **self.known_params, **self.fit_result.best_fit) - 0.5, 0,
+                max(self.x_data))
+
         write_xlsx(path, self.model_function, self.fit_quality, self.x_data,
             self.y_data, self.y_err_std, self.bounds, self.initial_guess,
-            self.known_params, self.known_params_err_std,
+            export_known_params, self.known_params_err_std,
             self.free_params_priors, self.fit_result.best_fit,
-            self.fit_result.confidence_interval, self.fit_result.std)
+            self.fit_result.confidence_interval, self.fit_result.std,
+            self.fit_result.rmse, bleaching_depth=bleaching_depth)
 
     def apply_calibration_results(self, sigma_phi, sigma_phi_std, mu, mu_std):
         """Takes the calibration results and saves them as input parameters."""

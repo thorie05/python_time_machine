@@ -32,8 +32,9 @@ def read_xlsx(path):
 
 
 def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
-    bounds, initial_guesss, known_params, known_params_err_std,
-    free_params_priors, best_fit, confidence_interval, std):
+    bounds, initial_guess, known_params, known_params_err_std,
+    free_params_priors, best_fit, confidence_interval, std, rmse,
+    bleaching_depth=None):
     """Writes various fit details into a .xlsx file."""
 
     p = Path(path)
@@ -81,7 +82,7 @@ def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
 
         current_row += 3
 
-    def _write_float_and_array_dict(title, dct):
+    def _write_float_and_array_dict(title, dct, value_label="value"):
         """Writes the contents of a dict containing either floats or arrays."""
 
         nonlocal current_row
@@ -106,10 +107,10 @@ def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
 
         # if at least one value is an array
         if max_row > current_row:
-            ws.cell(row=current_row, column=1, value="value(s)")
+            ws.cell(row=current_row, column=1, value=value_label+"(s)")
         # if all values are floats
         else:
-            ws.cell(row=current_row, column=1, value="value")
+            ws.cell(row=current_row, column=1, value=value_label)
 
         current_row = max_row + 2
 
@@ -142,14 +143,33 @@ def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
     current_row = 13 + len(x_data) + 1
 
     _write_tuple_dict("bounds", bounds, "lower", "upper")
-    _write_float_and_array_dict("initial_guess", initial_guesss)
+    _write_float_and_array_dict("initial_guess", initial_guess)
     _write_float_and_array_dict("known_params", known_params)
     _write_float_and_array_dict("known_params_err_std", known_params_err_std)
-    _write_tuple_dict("free_params_priors", free_params_priors, "sigma", "mu")
-    _write_float_and_array_dict("best_fit", best_fit)
+    _write_tuple_dict("free_params_priors", free_params_priors, "value", "std")
+    _write_float_and_array_dict("best_fit", best_fit, value_label="median")
     _write_tuple_dict("confidence_interval", confidence_interval, "lower",
         "upper")
     _write_float_and_array_dict("std", std)
+
+    # manually add rmse section
+    rmse_title_row = current_row
+    rmse_value_row = rmse_title_row + 1
+    ws.cell(row=rmse_title_row, column=1, value="RMSE").font = Font(bold=True)
+    ws.cell(row=rmse_value_row, column=1, value="value")
+    ws.cell(row=rmse_value_row, column=2, value=round(float(rmse), ROUND_TO))
+    current_row = rmse_value_row + 2
+
+    # manually add bleaching depth if given
+    if bleaching_depth is not None:
+        bleaching_depth_title_row = current_row
+        bleaching_depth_value_row = bleaching_depth_title_row + 1
+        ws.cell(row=bleaching_depth_title_row, column=1,
+            value="Bleaching-front depth").font = Font(bold=True)
+        ws.cell(row=bleaching_depth_value_row, column=1, value="value")
+        ws.cell(row=bleaching_depth_value_row, column=2,
+            value=round(float(bleaching_depth), ROUND_TO))
+        current_row = bleaching_depth_value_row + 2
 
     for col in ws.columns:
         max_length = 0

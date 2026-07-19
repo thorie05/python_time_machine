@@ -89,6 +89,10 @@ class CalibrationWindowLogic(QObject):
                     "Lx/Tx and Error).")
                     return
 
+            # set loaded filename
+            display_filename = filename.replace("\\", "/").split("/")[-1]
+            self.ui.filename_label.setText(display_filename)
+
             # clear input data dicts
             self.x_data_dict.clear()
             self.y_data_dict.clear()
@@ -335,9 +339,13 @@ class CalibrationWindowLogic(QObject):
         if not path.endswith(".xlsx"):
             path += ".xlsx"
 
+        # add 1 again to order before exporting
+        export_known_params = self.known_params.copy()
+        export_known_params["order"] += 1
+
         write_xlsx(path, self.engine.models.expo, self.fit_quality,
             self.x_data_combined, self.y_data_combined, self.y_err_std_combined,
-            self.bounds, self.initial_guess, self.known_params,
+            self.bounds, self.initial_guess, export_known_params,
             self.known_params_err_std, self.free_params_priors,
             self.fit_result.best_fit, self.fit_result.confidence_interval,
-            self.fit_result.std)
+            self.fit_result.std, self.fit_result.rmse)

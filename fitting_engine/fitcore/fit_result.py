@@ -21,6 +21,7 @@ class FitResult:
             confidence intervals.
         std (dict(str: float)): Dict mapping fit parameter names to the standard
             deviation of their samples / probability distribution.
+        rmse (float): Root mean squared error for the fit.
         samples (dict(str: list(float))): Dict mapping fit parameter names to
             lists of all bootstrap samples.
     """
@@ -29,4 +30,5 @@ class FitResult:
     best_fit: dict | None = None
     confidence_interval: dict | None = None
     std: dict | None = None
+    rmse : float | None = None
     samples: dict | None = None

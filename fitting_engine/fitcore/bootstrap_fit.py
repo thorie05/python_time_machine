@@ -104,20 +104,23 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             # median instead of mean for fit results as it can be more stable
             best_fit[param_name] = np.median(values)
 
-            # calculate lower and upper percentile for 95% confidence range
-            # instead of standard deviation since the error can be asymetric
-            lower_percentile = np.percentile(values, 2.5)
-            upper_percentile = np.percentile(values, 97.5)
+            # calculate 68.27% confidence intervals
+            lower_percentile = np.percentile(values, 15.865)
+            upper_percentile = np.percentile(values, 84.135)
             confidence_interval[param_name] = \
                 (float(lower_percentile), float(upper_percentile))
 
             # calculate the standard deviation of the bootstrap samples
             std[param_name] = np.std(values)
 
+        # calculate rmse (deviation of fitted line to the datapoints)
+        y_data_fit = model_function(x_data, **known_params, **best_fit)
+        rmse = np.sqrt(np.mean((y_data_fit - y_data)**2))
+
     # construct fit result dataclass to be returned
     fit_result = FitResult(success=success, best_fit=best_fit,
-        confidence_interval=confidence_interval,
-        std=std, samples=bootstrap_samples)
+        confidence_interval=confidence_interval, std=std, rmse=rmse,
+        samples=bootstrap_samples)
 
     return fit_result
 

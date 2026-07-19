@@ -121,13 +121,17 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
 
     for param_name in free_params_priors:
         samples = trace.posterior[param_name].values.flatten()
-        lower, upper = np.percentile(samples, [2.5, 97.5])
+        lower, upper = np.percentile(samples, [15.865, 84.135])
 
         best_fit[param_name] = float(np.median(samples))
         confidence_interval[param_name] = (float(lower), float(upper))
         # plain standard deviation of the samples (susceptible to outliers)
         std[param_name] = float(np.std(samples))
         posterior_samples[param_name] = samples
+
+    # calculate rmse (deviation of fitted line to the datapoints)
+    y_data_fit = model_function(x_data, **known_params, **best_fit)
+    rmse = np.sqrt(np.mean((y_data_fit - y_data)**2))
 
     # fit summary
     summary = arviz.summary(trace, var_names=list(free_params_priors.keys()),
@@ -142,7 +146,7 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
     success = rhat_ok and ess_ok and no_divergences
 
     result = FitResult(success=success, best_fit=best_fit,
-        confidence_interval =confidence_interval, std=std,
+        confidence_interval=confidence_interval, std=std, rmse=rmse,
         samples=posterior_samples)
 
     return result

@@ -38,6 +38,7 @@ class MainWindow(QWidget):
             self.logic.FIT_TYPE_OPTIONS)
         self.calibration_button = Button("Calibrate")
         self.load_button = Button("Choose .xlsx data")
+        self.filename_label = QLabel("")
         self.run_fit_button = Button("Run fit")
         self.export_button = Button("Export MCMC results")
         self.progress_bar = ProgressBar()
@@ -110,9 +111,13 @@ class MainWindow(QWidget):
             self.logic.open_calibration_window)
         button_column.addWidget(self.calibration_button)
 
-        # load .xslx button
+        # load .xslx button and filename in a row
+        load_button_row = QHBoxLayout()
+        load_button_row.setAlignment(Qt.AlignLeft)
+        load_button_row.addWidget(self.load_button)
         self.load_button.clicked.connect(self.logic.load_xlsx)
-        button_column.addWidget(self.load_button)
+        load_button_row.addWidget(self.filename_label)
+        button_column.addLayout(load_button_row)
 
         # combo boxes for model, fit type and quality selection
         button_column.addWidget(self.model_select)
