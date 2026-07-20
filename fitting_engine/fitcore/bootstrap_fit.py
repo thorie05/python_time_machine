@@ -110,8 +110,9 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             confidence_interval[param_name] = \
                 (float(lower_percentile), float(upper_percentile))
 
-            # calculate the standard deviation of the bootstrap samples
-            std[param_name] = np.std(values)
+            # median absolute deviation as robust std estimate
+            std[param_name] = \
+                1.4826 * np.median(np.abs(values - best_fit[param_name]))
 
         # calculate rmse (deviation of fitted line to the datapoints)
         y_data_fit = model_function(x_data, **known_params, **best_fit)

@@ -125,8 +125,9 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
 
         best_fit[param_name] = float(np.median(samples))
         confidence_interval[param_name] = (float(lower), float(upper))
-        # plain standard deviation of the samples (susceptible to outliers)
-        std[param_name] = float(np.std(samples))
+        # median absolute deviation as robust std estimate
+        std[param_name] = \
+            1.4826 * np.median(np.abs(samples - best_fit[param_name]))
         posterior_samples[param_name] = samples
 
     # calculate rmse (deviation of fitted line to the datapoints)
