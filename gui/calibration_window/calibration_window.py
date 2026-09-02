@@ -4,7 +4,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
     QVBoxLayout,
-    QWidget
+    QWidget,
+    QCheckBox
 )
 
 from .calibration_parameter_table import CalibrationParameterTable
@@ -13,7 +14,6 @@ from .calibration_window_logic import CalibrationWindowLogic
 from ..shared.basic_widgets import Button, ComboBox, Headline, ProgressBar
 from ..shared.plots import Plot
 from ..shared.style_config import style_tokens
-
 
 class CalibrationWindow(QWidget):
     """
@@ -44,6 +44,7 @@ class CalibrationWindow(QWidget):
         self.load_button = Button("Choose .xlsx data")
         self.filename_label = QLabel("")
         self.run_fit_button = Button("Run calibration")
+        self.popup_checkbox = QCheckBox("Finished Pop-up")
         self.export_button = Button("Export MCMC results")
         self.apply_button = Button("Apply calibration results")
         self.progress_bar = ProgressBar()
@@ -128,14 +129,17 @@ class CalibrationWindow(QWidget):
         # set medium as default value for fit quality
         self.fit_quality_select.combo_box.setCurrentIndex(1)
 
-        # run fit and export buttons in a row
+        # run fit and inform when finished checkbox
         run_button_row = QHBoxLayout()
         run_button_row.setAlignment(Qt.AlignLeft)
         run_button_row.addWidget(self.run_fit_button)
         self.run_fit_button.clicked.connect(self.logic.run_fit)
-        run_button_row.addWidget(self.export_button)
-        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
+        run_button_row.addWidget(self.popup_checkbox)
         button_column.addLayout(run_button_row)
+
+        # export button
+        button_column.addWidget(self.export_button)
+        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
 
         # apply calibration results button
         button_column.addWidget(self.apply_button)

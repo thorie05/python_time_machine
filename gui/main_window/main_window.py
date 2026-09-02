@@ -1,5 +1,11 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QLabel,
+    QHBoxLayout,
+    QVBoxLayout,
+    QWidget,
+    QCheckBox
+)
 
 from .input_parameter_table import InputParameterTable
 from .main_window_logic import MainWindowLogic
@@ -40,6 +46,7 @@ class MainWindow(QWidget):
         self.load_button = Button("Choose .xlsx data")
         self.filename_label = QLabel("")
         self.run_fit_button = Button("Run fit")
+        self.popup_checkbox = QCheckBox("Finished Pop-up")
         self.export_button = Button("Export MCMC results")
         self.progress_bar = ProgressBar()
         self.status_label = QLabel()
@@ -64,7 +71,7 @@ class MainWindow(QWidget):
         top_row = self.create_top_row()
         content_layout.addLayout(top_row, stretch=1)
 
-        # add bottom row (plot widget and button column)
+        # add bottom row (button widget and button column)
         bottom_row = self.create_bottom_row()
         content_layout.addLayout(bottom_row, stretch=3)
 
@@ -128,14 +135,17 @@ class MainWindow(QWidget):
         # set medium as default value for fit quality
         self.fit_quality_select.combo_box.setCurrentIndex(1)
 
-        # run fit and export buttons in a row
+        # run fit and inform when finished checkbox
         run_button_row = QHBoxLayout()
         run_button_row.setAlignment(Qt.AlignLeft)
         run_button_row.addWidget(self.run_fit_button)
         self.run_fit_button.clicked.connect(self.logic.run_fit)
-        run_button_row.addWidget(self.export_button)
-        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
+        run_button_row.addWidget(self.popup_checkbox)
         button_column.addLayout(run_button_row)
+
+        # export button
+        button_column.addWidget(self.export_button)
+        self.export_button.clicked.connect(self.logic.export_mcmc_fit)
 
         # loading bar and label
         progress_layout = QVBoxLayout()

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QSystemTrayIcon
 import numpy as np
 
 from ..shared.basic_widgets import MessageBoxFitCrash
@@ -32,6 +32,9 @@ class CalibrationWindowLogic(QObject):
             "high": self.engine.fit_quality_settings.high,
             "very high": self.engine.fit_quality_settings.very_high
         }
+
+        self.tray = QSystemTrayIcon()
+        self.tray.show()
 
         # input data
         self.x_data_dict = {}
@@ -259,13 +262,6 @@ class CalibrationWindowLogic(QObject):
         # set fit completed flag
         self.fit_completed = True
 
-        # check that the fit results are reliable
-        if not self.fit_result.success:
-            QMessageBox.warning(self.ui, "Warning",
-                "There have been problems with the fit. The results may be "
-                "faulty. Try increasing the fit quality, or improving the "
-                "accuracy of the known parameters.")
-
         # hide progres bar and status label
         self.ui.progress_bar.setVisible(False)
         self.ui.status_label.setVisible(False)
@@ -306,6 +302,19 @@ class CalibrationWindowLogic(QObject):
                 color = style_tokens.plot.single_plot_color
 
             self.ui.plot_widget.plot(x_data_fit, y_data_fit, color=color)
+
+        # finished pop up when checkbox ticked
+        if self.ui.popup_checkbox.isChecked():
+            self.tray.showMessage("Python Time Machine",
+                "Your calibration fit has finished!",
+                QSystemTrayIcon.MessageIcon.NoIcon, 5000)
+
+        # check that the fit results are reliable
+        if not self.fit_result.success:
+            QMessageBox.warning(self.ui, "Warning",
+                "There have been problems with the fit. The results may be "
+                "faulty. Try increasing the fit quality, or improving the "
+                "accuracy of the known parameters.")
 
     def on_fit_failed(self, message):
         """Function that is called when a fit raises an error."""

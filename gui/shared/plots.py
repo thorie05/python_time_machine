@@ -1,9 +1,10 @@
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import numpy as np
-from PySide6.QtWidgets import QDialog, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QFileDialog
 
 from .style_config import style_tokens
+from .basic_widgets import Button
 
 
 class HistogramWindow(QDialog):
@@ -13,21 +14,65 @@ class HistogramWindow(QDialog):
         super().__init__(parent)
         self.setObjectName("HistogramWindow")
 
+        self.data = data
+        self.param_name = param_name
+
         self.setWindowTitle(style_tokens.histogram_window.window_title)
 
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+
         self.canvas = FigureCanvasQTAgg(Figure())
         layout.addWidget(self.canvas)
-        self.setLayout(layout)
+
+        button_layout = QHBoxLayout()
+
+        self.save_button = Button("Save PNG")
+        self.save_button.clicked.connect(self.save_png)
+
+        self.action_button = Button("Save CSV")
+        self.action_button.clicked.connect(self.save_csv)
+
+        button_layout.addStretch()
+        button_layout.addWidget(self.save_button)
+        button_layout.addWidget(self.action_button)
+        button_layout.addStretch()
+
+        layout.addLayout(button_layout)
 
         ax = self.canvas.figure.add_subplot(111)
         ax.clear()
-        ax.hist(data, bins="auto", color=style_tokens.plot.histogram_color)
-        ax.set_title(f"Posterior distribution of {param_name}")
+        ax.hist(self.data, bins="auto", color=style_tokens.plot.histogram_color)
+        ax.set_title(f"Posterior distribution of {self.param_name}")
         ax.set_xlabel("Value")
         ax.set_ylabel("Number of samples")
 
         self.canvas.draw()
+
+    def save_png(self):
+        """Saves the histogram as a png file."""
+
+        filename, _ = QFileDialog.getSaveFileName(self, "Save histogram", "",
+            "PNG Images (*.png)")
+        if filename:
+            if not filename.lower().endswith(".png"):
+                filename += ".png"
+
+            self.canvas.figure.savefig(filename, dpi=300, bbox_inches="tight")
+
+    def save_csv(self):
+        """Saves the histogram data as a CSV file."""
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save data", "", "CSV File (*.csv)")
+
+        if filename:
+            if not filename.lower().endswith(".csv"):
+                filename += ".csv"
+
+            with open(filename, "w", newline="", encoding="utf-8") as file:
+                file.write(f"{self.param_name}\n")
+                file.write(",".join(map(str, self.data)) + "\n")
 
 
 class Plot(FigureCanvasQTAgg):
