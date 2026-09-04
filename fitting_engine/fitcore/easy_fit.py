@@ -8,8 +8,8 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     """A fast least square fitting function without rigorous error estimation.
 
     A function that takes datapoints and a mathematical model function to
-    calculate the least squares best fit of the model through the datapoints. It
-    uses scipy's least_square function. Different known parameter values for
+    calculate the least squares best fit of the model through the datapoints.
+    It uses scipy's least_square function. Different known parameter values for
     individual data points are allowed, which is useful for fitting multiple
     calibration samples with different exposure times at once for example.
 
@@ -17,15 +17,15 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
         x_data (numpy.ndarray): The x-values of the data points.
         y_data (numpy.ndarray): The y-values of the data points.
         model_function (callable): The model function to be used for fitting.
-        known_params (dict(str: float or numpy.ndarray)): Dict mapping the known
-            parameter names to their known values. If an array is passed it
-            has to have the same length as the number of data points.
+        known_params (dict(str: float or numpy.ndarray)): Dict mapping the
+            known parameter names to their known values. If an array is passed
+            it has to have the same length as the number of data points.
         initial_guess (dict(str: float)): Dict mapping the free parameter
             names to the initial guess for each.
         y_err_std (list or numpy.ndarray, optional): The standard deviation
             of the y-values.
-        only_positive (bool, optional): Flag that controls if the fit parameters
-            are allowed to be only positive.
+        only_positive (bool, optional): Flag that controls if the fit
+            parameters are allowed to be only positive.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
@@ -70,8 +70,8 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
 
     # apply least squares fit with custom residual function
     try:
-        result = least_squares(residuals, x0=initial_guess_array, bounds=bounds,
-            max_nfev=10_000,)
+        result = least_squares(residuals, x0=initial_guess_array,
+            bounds=bounds, max_nfev=10_000)
 
         # compute parameter uncertainties
         res_jacobian = result.jac

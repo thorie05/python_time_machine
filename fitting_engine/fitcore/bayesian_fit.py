@@ -117,7 +117,8 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
     best_fit = {}
     confidence_interval = {}
     std = {}
-    posterior_samples = {}
+    marginal_samples = {}
+    joint_samples = []
 
     for param_name in free_params_priors:
         samples = trace.posterior[param_name].values.flatten()
@@ -128,7 +129,12 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
         # median absolute deviation as robust std estimate
         std[param_name] = \
             1.4826 * np.median(np.abs(samples - best_fit[param_name]))
-        posterior_samples[param_name] = samples
+        marginal_samples[param_name] = samples
+
+    for i in range(len(next(iter(marginal_samples.values())))):
+        single_sample = {param_name: float(marginal_samples[param_name][i]) \
+            for param_name in free_params_priors}
+        joint_samples.append(single_sample)
 
     # calculate rmse (deviation of fitted line to the datapoints)
     y_data_fit = model_function(x_data, **known_params, **best_fit)
@@ -148,7 +154,7 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
 
     result = FitResult(success=success, best_fit=best_fit,
         confidence_interval=confidence_interval, std=std, rmse=rmse,
-        samples=posterior_samples)
+        marginal_samples=marginal_samples, joint_samples=joint_samples)
 
     return result
 

@@ -273,7 +273,8 @@ class MainWindowLogic(QObject):
         if self.fit_type == "mcmc":
             # calculate event ages from posterior samples
             event_ages, event_ages_samples = self.engine.get_event_ages(
-                list(self.fit_result.best_fit.keys()), self.fit_result.samples)
+                list(self.fit_result.best_fit.keys()),
+                self.fit_result.marginal_samples)
 
             # set event ages with confidence intervals
             for param_name, (value, interval) in event_ages.items():
@@ -282,7 +283,7 @@ class MainWindowLogic(QObject):
                     interval)
 
             # connect posterior samples to be displayed in a historgam
-            all_samples = self.fit_result.samples | event_ages_samples
+            all_samples = self.fit_result.marginal_samples | event_ages_samples
             for param_name, samples in all_samples.items():
                 self.ui.result_table.set_posterior_samples(param_name, samples)
 

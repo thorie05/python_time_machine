@@ -22,8 +22,10 @@ class FitResult:
         std (dict(str: float)): Dict mapping fit parameter names to the standard
             deviation of their samples / probability distribution.
         rmse (float): Root mean squared error for the fit.
-        samples (dict(str: list(float))): Dict mapping fit parameter names to
-            lists of all bootstrap samples.
+        marginal_samples (dict(str: list(float))): Dict mapping fit parameter
+            names to lists of the flattened, marginal samples.
+        joint_samples: (list(dict(str: float))): List containing the joint,
+            non-flattened samples for each parameter.
     """
 
     success: bool | None = None
@@ -31,4 +33,5 @@ class FitResult:
     confidence_interval: dict | None = None
     std: dict | None = None
     rmse : float | None = None
-    samples: dict | None = None
+    marginal_samples: dict | None = None
+    joint_samples: list | None = None

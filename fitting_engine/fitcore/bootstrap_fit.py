@@ -50,6 +50,10 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             See documentation for details.
     """
 
+    if known_params_err_std is None:
+        known_params_err_std = \
+            {param_name: 0.0 for param_name in known_params.keys()}
+
     rng = np.random.default_rng(seed)
 
     # make unique seeds of size n for each worker
@@ -62,8 +66,9 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
         known_params_err_std, only_positive=only_positive) \
         for seed_i in seeds)
 
-    # set up dict that will store the result of each fit
+    # set up dict and list that will store the result of each fit
     bootstrap_samples = {param_name: [] for param_name in initial_guess.keys()}
+    joint_samples = []
 
     # fill the fitting results dict with the results from the parallel execution
     for parallel_result in parallel_results:
@@ -72,6 +77,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
             continue
         for param_name, value in res.items():
             bootstrap_samples[param_name].append(value)
+        joint_samples.append(res)
 
     best_fit = {}
     confidence_interval = {}
@@ -121,7 +127,7 @@ def bootstrap_fit(n, x_data, y_data, model_function, known_params,
     # construct fit result dataclass to be returned
     fit_result = FitResult(success=success, best_fit=best_fit,
         confidence_interval=confidence_interval, std=std, rmse=rmse,
-        samples=bootstrap_samples)
+        marginal_samples=bootstrap_samples, joint_samples=joint_samples)
 
     return fit_result
 

@@ -283,8 +283,9 @@ class CalibrationWindowLogic(QObject):
             result_table.set_mu_std(self.mu_std)
 
             result_table.set_posterior_samples_sigma_phi(
-                self.fit_result.samples["sigma_phi"])
-            result_table.set_posterior_samples_mu(self.fit_result.samples["mu"])
+                self.fit_result.marginal_samples["sigma_phi"])
+            result_table.set_posterior_samples_mu(
+                self.fit_result.marginal_samples["mu"])
 
         # plot fitted curves for each sample
         for sample_name in self.x_data_dict:
