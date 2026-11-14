@@ -68,14 +68,14 @@ class FittingEngine():
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, seed=seed)
 
-    def bayesian_fit(self, draws, tune, x_data, y_data, model_function,
-        known_params, free_params_priors, y_err_std,
-        known_params_err_std=None, only_positive=False, target_accept=0.95,
+    def bayesian_fit(self, draws, tune, x_data, y_data, y_err_std, model_function,
+        known_params, free_params_priors, known_params_err_std=None,
+        only_positive=False, target_accept=0.95,
         cores=4, seed=None):
         """Wrapper method for bayesian_fit."""
 
-        return bayesian_fit(draws, tune, x_data, y_data, model_function,
-            known_params, free_params_priors, y_err_std,
+        return bayesian_fit(draws, tune, x_data, y_data, y_err_std,
+            model_function, known_params, free_params_priors,
             known_params_err_std=known_params_err_std,
             only_positive=only_positive, target_accept=target_accept,
             cores=cores, seed=seed, verbose=self.verbose)

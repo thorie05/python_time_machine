@@ -98,7 +98,8 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
             math=pymc.math)
 
         # provide model with observed data and errors
-        pymc.Normal("obs", mu=model_y, sigma=y_err_std, observed=y_data)
+        pymc.Censored("obs", pymc.Normal.dist(mu=model_y, sigma=y_err_std),
+            lower=0.0, upper=None, observed=y_data)
 
         # run mcmc
         if not verbose:
@@ -107,11 +108,11 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
             with no_output():
                 trace = pymc.sample(draws=draws, tune=tune,
                     target_accept=target_accept, chains=chains, cores=cores,
-                    progressbar=False, random_seed=seed)
+                    progressbar=False, random_seed=seed, mp_ctx="spawn")
         else:
             trace = pymc.sample(draws=draws, tune=tune,
                 target_accept=target_accept, chains=chains, cores=cores,
-                progressbar=True, random_seed=seed)
+                progressbar=True, random_seed=seed, mp_ctx="spawn")
 
     # extract results
     best_fit = {}

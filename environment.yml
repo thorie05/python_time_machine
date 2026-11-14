@@ -8,3 +8,8 @@ dependencies:
   - joblib
   - pymc
   - openpyxl
+  - ipykernel
+  - pip
+  - setuptools>=64
+  - pip:
+      - -e .

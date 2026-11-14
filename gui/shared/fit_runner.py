@@ -5,9 +5,9 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 class FitRunner(QObject):
     """Fit runner object running all fits."""
 
-    status   = Signal(str) # current status signal displayed in the ui
+    status = Signal(str) # current status signal displayed in the ui
     finished = Signal()
-    failed   = Signal(str)
+    failed = Signal(str)
 
     def __init__(self, engine, x_data, y_data, y_err_std, model_function,
         known_params, bounds, fit_type, fit_quality, known_params_err_std=None):
