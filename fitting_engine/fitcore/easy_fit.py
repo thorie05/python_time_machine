@@ -36,7 +36,6 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
     # the optional math variable provided for the pymc fit
     all_param_names = list(signature(model_function).parameters.keys())
     all_param_names.remove("x")
-    all_param_names.remove("math")
 
     # names of the free parameters in the same order as in the model function 
     free_param_names = [name for name in all_param_names if name in \

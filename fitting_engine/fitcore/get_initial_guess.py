@@ -41,7 +41,6 @@ def get_initial_guess(x_data, y_data, model_function, known_params, bounds=None,
     # the optional math variable provided for the pymc fit
     all_param_names = list(signature(model_function).parameters.keys())
     all_param_names.remove("x")
-    all_param_names.remove("math")
 
     # names of the free parameters in the same order as in the model function 
     free_param_names \
@@ -67,8 +66,8 @@ def get_initial_guess(x_data, y_data, model_function, known_params, bounds=None,
     # generate num_restarts different results and take the best
     for seed in range(num_restarts):
         result = differential_evolution(objective, bounds=ordered_bounds,
-            strategy='rand1bin', popsize=100, mutation=(0.5, 1),
-            maxiter=100_000, polish=False, seed=seed, updating='deferred',
+            strategy='rand1bin', popsize=20, mutation=(0.5, 1),
+            maxiter=10_000, polish=False, seed=seed, updating='deferred',
             workers=workers)
         if result.success and result.fun < best_fun:
             best_fun = result.fun

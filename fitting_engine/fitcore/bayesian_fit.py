@@ -1,174 +1,195 @@
 import numpy as np
-import pymc
-import arviz
-import sys
-import os
-import contextlib
-import logging
+import emcee
 from .fit_result import FitResult
 
 
-def bayesian_fit(draws, tune, x_data, y_data, y_err_std, model_function,
-    known_params, free_params_priors, known_params_err_std=None,
-    only_positive=False, target_accept=0.95, chains=4, cores=4, seed=None,
+def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
+    model_function, initial_guess, free_params_bounds,
+    known_params_distribution, n_walkers=None, seed=None,
     verbose=False):
     """
-    A fitting function that uses the MCMC method for calculating uncertainties.
-
     A function that takes datapoints and a mathematical model function to
     calculate the best fit of the model through the datapoints as well as the
     uncertainties for all fitting parameters. Uses the Bayesian MCMC method from
-    the PyMC module. If the known_params dict contains arrays with seperate
-    values of the parameters for each data point, no perturbation will be
-    applied, meaning the parameter is treated as fixed with a 100% certainty for
-    every individual data point.
+    the emcee module. Free parameters are sampled according to a uniform prior
+    within their specified bounds. Known parameters can be treated as fixed,
+    normally distributed or distributed according to custom log-probability
+    density functions. This also allows for joint probability
+    distributions of multiple correlated parameters. Assumes independent
+    normally distributed uncertainties of the measured y-values. Only the
+    free parameters are included in the returned fitting results and samples.
 
     Args:
-        draws (int): Number of MCMC samples per chain.
-        tune (int): Number of tuning steps.
+        draws (int): Number of MCMC sampling steps per walker.
+        tune (int): Number of burn-in steps per walker.
         x_data (numpy.ndarray): The x-values of the data points.
         y_data (numpy.ndarray): The y-values of the data points.
         y_err_std (numpy.ndarray): The standard deviation of the y-values.
         model_function (callable): The model function to be used for fitting.
-        known_params (dict(str: float or numpy.ndarray)): Dict mapping the known
-            parameter names to their known values. If an array is passed it
-            has to have the same length as the number of data points.
-        free_params_priors (dict(str: Tuple(float, float))): A dict mapping the
-            free parameter names to a tuple containing the most likely value
-            e.g. initial guess along with the expected standard deviation.
-            Serves as a prior for the MCMC model.
-        known_params_err_std (dict(str: float), optional): An optional dict
-            mapping the known parameter names to standard deviation of their
-            uncertain known values.
-        only_positive (bool, optional): Optional flag that controls if the fit
-            parameters are allowed to be only positive. Enforces the use of the
-            truncated normal distribution instead of the usual one.
-        target_accept (float): Optional PyMC target_accept argument.
-        chains (int, optional): Optional number MCMC chains.
-        cores (int, optional): Optional number of cores to use.
+        initial_guess (dict(str: float)): A dict mapping the names of all
+            sampled parameters (free parameters and uncertain known parameters)
+            to their initial values. The walkers are initialized with small
+            random perturbations around these values.
+        free_params_bounds (dict(str: Tuple(float, float))): A dict mapping
+            the free parameter names to tuples containing their lower and upper
+            bounds. Serves as a uniform prior for the MCMC model.
+        known_params_distribution (dict(tuple(str): tuple or callable)):
+            A dict mapping tuples of known parameter names to their respective
+            probability distributions. For individual parameters a tuple
+            containing the mean value and standard deviation of a normal
+            distribution can be passed. If the standard deviation is 0 the
+            parameter is treated as fixed. In this case the value can also be
+            a numpy array containing individual parameter values for each data
+            point. Alternatively, a callable returning the log-probability
+            density can be passed for individual or multiple jointly
+            distributed parameters. The callable takes the parameter values
+            as positional arguments in the order specified by the tuple of
+            parameter names and returns a scalar log-probability density.
+        n_walkers (int, optional): Number of MCMC walkers. If not specified,
+            the maximum of 32 and twice the number of sampled parameters is
+            used.
         seed (int, optional): Optional random number generator seed.
-        verbose (bool, optional): Optional flag controling console output.
+        verbose (bool, optional): Optional flag controlling console output.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
             See documentation for details.
     """
 
-    with pymc.Model():
-        # define known parameters (with perturbation if std given)
-        uncertain_known_params = {}
-        for param_name, param_mu in known_params.items():
-            # known parameters can be scalar, meaning they are constant fot all
-            # data points or numpy arrays, which allows each data point to have
-            # individual values for the parameter
-            if np.isscalar(param_mu):
-                # if standard deviation is provided for the parameter in the
-                # known_params_err_std dict add the parameter according to the
-                # normal distribution given by its standard deviation
-                if known_params_err_std and (param_std \
-                    := known_params_err_std.get(param_name, 0)) > 0:
-                    if only_positive:
-                        uncertain_known_params[param_name] \
-                            = pymc.TruncatedNormal(param_name, mu=param_mu,
-                            sigma=param_std, lower=0)
-                    else:
-                        uncertain_known_params[param_name] = pymc.Normal(
-                            param_name, mu=param_mu, sigma=param_std)
-                # if the parameter isn't in the known_params_err_std_dict or has
-                # a standard deviation of 0 treat is as fixed
-                else:
-                    uncertain_known_params[param_name] = param_mu
-            else:
-                # if it's a vector, also treat it as fixed, it will be evaluated
-                # point-wise
-                uncertain_known_params[param_name] = param_mu
+    # separate fixed parameters and prior distributions
+    fixed_params = {}
+    normal_priors = {}
+    custom_priors = {}
 
-        # define priors/free/fit parameters
-        priors = {}
-        for param_name, (param_mu, param_std) in free_params_priors.items():
-            if only_positive:
-                priors[param_name] = pymc.TruncatedNormal(param_name,
-                    mu=param_mu, sigma=param_std, lower=0)
-            else:
-                priors[param_name] = pymc.Normal(param_name, mu=param_mu,
-                    sigma=param_std)
-
-        # evaluate model function with pymc math
-        model_y = model_function(x_data, **uncertain_known_params, **priors,
-            math=pymc.math)
-
-        # provide model with observed data and errors
-        pymc.Censored("obs", pymc.Normal.dist(mu=model_y, sigma=y_err_std),
-            lower=0.0, upper=None, observed=y_data)
-
-        # run mcmc
-        if not verbose:
-            # silence console output and logging
-            logging.disable(logging.CRITICAL)
-            with no_output():
-                trace = pymc.sample(draws=draws, tune=tune,
-                    target_accept=target_accept, chains=chains, cores=cores,
-                    progressbar=False, random_seed=seed, mp_ctx="spawn")
+    for param_names, distribution in known_params_distribution.items():
+        if callable(distribution):
+            custom_priors[param_names] = distribution
         else:
-            trace = pymc.sample(draws=draws, tune=tune,
-                target_accept=target_accept, chains=chains, cores=cores,
-                progressbar=True, random_seed=seed, mp_ctx="spawn")
+            param_name = param_names[0]
+            mu, std = distribution
 
-    # extract results
+            if std == 0:
+                fixed_params[param_name] = mu
+            else:
+                normal_priors[param_name] = (mu, std)
+
+    # determine sampled parameters and their initial values
+    sampled_param_names = list(initial_guess.keys())
+    ndim = len(sampled_param_names)
+    theta_init = np.array(list(initial_guess.values()), dtype=float)
+
+    # convert parameter vector to parameter dictionary
+    def unpack_params(theta):
+        return dict(zip(sampled_param_names, theta))
+
+    def log_prior(theta):
+        params = unpack_params(theta)
+        lp = 0.0
+
+        # uniform priors for free parameters
+        for param_name, (lower, upper) in free_params_bounds.items():
+            if not lower <= params[param_name] <= upper:
+                return -np.inf
+
+        # normal priors for uncertain known parameters
+        for param_name, (mu, std) in normal_priors.items():
+            lp -= 0.5 * ((params[param_name] - mu) / std)**2
+
+        # custom priors for individual or correlated parameters
+        for param_names, logpdf in custom_priors.items():
+            lp += logpdf(*(params[name] for name in param_names))
+
+        return lp
+
+    def log_likelihood(theta):
+        params = unpack_params(theta)
+        model_y = model_function(x_data, **fixed_params, **params)
+
+        return -0.5 * np.sum(((y_data - model_y) / y_err_std)**2)
+
+    def log_posterior(theta):
+        lp = log_prior(theta)
+
+        if not np.isfinite(lp):
+            return -np.inf
+
+        return lp + log_likelihood(theta)
+
+    rng = np.random.default_rng(seed)
+
+    if n_walkers is None:
+        n_walkers = max(32, 2 * ndim)
+
+    scale = 1e-4 * np.where(theta_init != 0, np.abs(theta_init), 1.0)
+
+    initial_positions = np.empty((n_walkers, ndim))
+
+    for i in range(n_walkers):
+        while True:
+            position = theta_init + rng.normal(size=ndim) * scale
+
+            if np.isfinite(log_posterior(position)):
+                initial_positions[i] = position
+                break
+
+    sampler = emcee.EnsembleSampler(n_walkers, ndim, log_posterior)
+
+    if seed is not None:
+        sampler.random_state = np.random.RandomState(seed).get_state()
+
+    # burn-in phase
+    state = sampler.run_mcmc(initial_positions, tune, progress=verbose)
+    sampler.reset()
+
+    # production phase
+    sampler.run_mcmc(state, draws, progress=verbose)
+
+    # extract samples
+    samples = sampler.get_chain(flat=True)
+
     best_fit = {}
     confidence_interval = {}
     std = {}
     marginal_samples = {}
     joint_samples = []
 
-    for param_name in free_params_priors:
-        samples = trace.posterior[param_name].values.flatten()
-        lower, upper = np.percentile(samples, [15.865, 84.135])
+    for param_name in free_params_bounds:
+        idx = sampled_param_names.index(param_name)
+        param_samples = samples[:, idx]
 
-        best_fit[param_name] = float(np.median(samples))
+        lower, upper = np.percentile(param_samples, [15.865, 84.135])
+
+        best_fit[param_name] = float(np.median(param_samples))
         confidence_interval[param_name] = (float(lower), float(upper))
+
         # median absolute deviation as robust std estimate
-        std[param_name] = \
-            1.4826 * np.median(np.abs(samples - best_fit[param_name]))
-        marginal_samples[param_name] = samples
+        std[param_name] = 1.4826 * np.median(
+            np.abs(param_samples - best_fit[param_name]))
 
-    for i in range(len(next(iter(marginal_samples.values())))):
-        single_sample = {param_name: float(marginal_samples[param_name][i]) \
-            for param_name in free_params_priors}
-        joint_samples.append(single_sample)
+        marginal_samples[param_name] = param_samples
 
-    # calculate rmse (deviation of fitted line to the datapoints)
-    y_data_fit = model_function(x_data, **known_params, **best_fit)
+    for sample in samples:
+        params = unpack_params(sample)
+        joint_samples.append({
+            name: float(params[name]) for name in free_params_bounds
+        })
+
+    # calculate rmse using posterior medians of all sampled parameters
+    median_params = unpack_params(np.median(samples, axis=0))
+    y_data_fit = model_function(x_data, **fixed_params, **median_params)
     rmse = np.sqrt(np.mean((y_data_fit - y_data)**2))
 
-    # fit summary
-    summary = arviz.summary(trace, var_names=list(free_params_priors.keys()),
-        round_to=None, kind="all")
+    # check convergence using integrated autocorrelation time
+    tau = sampler.get_autocorr_time(tol=0)
+    ess = draws * n_walkers / tau
 
-    # conditions for successful fit
-    rhat_ok = np.all(np.abs(summary["r_hat"] - 1) < 0.05)
-    ess_ok = np.all(summary["ess_bulk"] > 1000)
-    no_divergences = trace.sample_stats["diverging"].values.sum() == 0
+    tau_ok = np.all(draws > 50 * tau)
+    ess_ok = np.all(ess > 1000)
 
-    # fit is only successful if all conditions are satisfied
-    success = rhat_ok and ess_ok and no_divergences
+    success = bool(tau_ok and ess_ok)
 
     result = FitResult(success=success, best_fit=best_fit,
         confidence_interval=confidence_interval, std=std, rmse=rmse,
         marginal_samples=marginal_samples, joint_samples=joint_samples)
 
     return result
-
-
-@contextlib.contextmanager
-def no_output():
-    """Context manager to suppress all stdout and stderr output."""
-
-    with open(os.devnull, 'w') as devnull:
-        old_stdout, old_stderr = sys.stdout, sys.stderr
-        sys.stdout = sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
