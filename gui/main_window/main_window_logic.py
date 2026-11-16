@@ -47,16 +47,14 @@ class MainWindowLogic(QObject):
         self.x_data = None
         self.y_data = None
         self.y_err_std = None
-        self.known_params = None
-        self.known_params_err_std = None
-        self.bounds = None
+        self.known_params_distribution = None
+        self.free_params_bounds = None
         self.model_function = None
         self.fit_type = None
         self.fit_quality = None 
 
         # fit results
         self.initial_guess = None
-        self.free_params_priors = None
         self.fit_result = None
 
         # flag depicting whether the fit results are up to date
@@ -143,20 +141,6 @@ class MainWindowLogic(QObject):
                 "needs to be closed.")
             return
 
-        # get parameter values with stds for all input parameters from the ui
-        # input table
-        input_parameter_table = self.ui.input_parameter_table
-        input_parameter_names = input_parameter_table.INPUT_PARAMETER_NAMES
-        self.known_params = {
-            param_name: input_parameter_table.get_value(param_name) \
-            for param_name in input_parameter_names}
-        self.known_params_err_std = {
-            param_name: input_parameter_table.get_std(param_name) \
-            for param_name in input_parameter_names}
-
-        # decrement order by 1, see fitting engine models
-        self.known_params["order"] -= 1.0
-
         # get the fit type, quality and model function from the ui combo boxes
         fit_type_select = self.ui.fit_type_select.get_text()
         self.fit_type = self.FIT_TYPE_OPTIONS[fit_type_select]
@@ -168,22 +152,26 @@ class MainWindowLogic(QObject):
         # retrieve model function arguments
         model_arguments = signature(self.model_function).parameters
 
-        # filter known_params and known_params_err_std to only hold arguments
-        # of the selected model function
+        # get parameter distributions for all input parameters from the ui
+        # input table that are arguments of the selected model function
         # (F is not necessary for single exposure, for example)
-        self.known_params = {
-            param_name: value for param_name, value \
-            in self.known_params.items() if param_name in model_arguments}
-        self.known_params_err_std = {
-            param_name: value for param_name, value \
-            in self.known_params_err_std.items() \
+        input_parameter_table = self.ui.input_parameter_table
+        input_parameter_names = input_parameter_table.INPUT_PARAMETER_NAMES
+        self.known_params_distribution = {
+            (param_name,): (input_parameter_table.get_value(param_name), \
+            input_parameter_table.get_std(param_name)) \
+            for param_name in input_parameter_names \
             if param_name in model_arguments}
+
+        # decrement order by 1, see fitting engine models
+        if ("order",) in self.known_params_distribution:
+            value, std = self.known_params_distribution[("order",)]
+            self.known_params_distribution[("order",)] = (value - 1.0, std)
 
         # check that all input parameters lie within the specified bounds
         # if not show alert box and abort the fit
-        for param_name in self.known_params:
-            value_val = self.known_params[param_name]
-            value_std = self.known_params_err_std[param_name]
+        for (param_name,), (value_val, value_std) in \
+            self.known_params_distribution.items():
             lower_val, upper_val \
                 = self.engine.param_bounds.val.asdict()[param_name]
             lower_std, upper_std \
@@ -218,20 +206,20 @@ class MainWindowLogic(QObject):
 
         # get a list of all free/fit parameter names
         free_params = [param_name for param_name in model_arguments \
-            if param_name not in self.known_params.keys()]
+            if (param_name,) not in self.known_params_distribution]
 
-        # get bounds for the free parameters (needed initial guess finder)
-        self.bounds = {param_name: value for param_name, value \
+        # get bounds for the free parameters
+        self.free_params_bounds = {param_name: (max(0.0, lower), upper) \
+            for param_name, (lower, upper) \
             in self.engine.param_bounds.val.asdict().items() \
             if param_name in free_params}
 
         # run fit
 
         self.fit_runner = FitRunner(self.engine, self.x_data,
-            self.y_data, self.y_err_std, self.model_function, self.known_params,
-            self.bounds, self.fit_type,
-            known_params_err_std=self.known_params_err_std,
-            fit_quality=self.fit_quality)
+            self.y_data, self.y_err_std, self.model_function,
+            self.known_params_distribution, self.free_params_bounds,
+            self.fit_type, self.fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
         self.fit_runner.finished.connect(self.on_fit_finished,
@@ -248,7 +236,6 @@ class MainWindowLogic(QObject):
 
         # save fit results
         self.initial_guess = self.fit_runner.initial_guess
-        self.free_params_priors = self.fit_runner.free_params_priors
         self.fit_result = self.fit_runner.fit_result
 
         # set fit completed flag
@@ -288,8 +275,11 @@ class MainWindowLogic(QObject):
                 self.ui.result_table.set_posterior_samples(param_name, samples)
 
         # plot fit curve
+        known_params = {param_name: value \
+            for (param_name,), (value, std) \
+            in self.known_params_distribution.items()}
         x_data_fit = np.linspace(np.min(self.x_data), np.max(self.x_data), 200)
-        y_data_fit = self.model_function(x_data_fit, **self.known_params,
+        y_data_fit = self.model_function(x_data_fit, **known_params,
             **self.fit_result.best_fit)
         self.ui.plot_widget.plot(x_data_fit, y_data_fit,
             color=style_tokens.plot.single_plot_color)
@@ -338,21 +328,28 @@ class MainWindowLogic(QObject):
         if not path.endswith(".xlsx"):
             path += ".xlsx"
 
+        # extract known parameter values
+        known_params = {param_name: value \
+            for (param_name,), (value, std) \
+            in self.known_params_distribution.items()}
+
         # add 1 again to order before exporting
-        export_known_params = self.known_params.copy()
-        export_known_params["order"] += 1
+        export_known_params_distribution = self.known_params_distribution.copy()
+        if ("order",) in export_known_params_distribution:
+            value, std = export_known_params_distribution[("order",)]
+            export_known_params_distribution[("order",)] = (value + 1.0, std)
 
         # find bleaching depth as 50% value for single exposure fit
         bleaching_depth = None
         if self.model_function == self.engine.models.expo:
             bleaching_depth = brentq(lambda x: self.model_function(x,
-                **self.known_params, **self.fit_result.best_fit) - 0.5, 0,
+                **known_params, **self.fit_result.best_fit) - 0.5, 0,
                 max(self.x_data))
 
         write_xlsx(path, self.model_function, self.fit_quality, self.x_data,
-            self.y_data, self.y_err_std, self.bounds, self.initial_guess,
-            export_known_params, self.known_params_err_std,
-            self.free_params_priors, self.fit_result.best_fit,
+            self.y_data, self.y_err_std, self.free_params_bounds,
+            self.initial_guess, export_known_params_distribution,
+            self.fit_result.best_fit,
             self.fit_result.confidence_interval, self.fit_result.std,
             self.fit_result.rmse, bleaching_depth=bleaching_depth)
 

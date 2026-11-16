@@ -6,7 +6,8 @@ dependencies:
   - scipy
   - matplotlib
   - joblib
-  - pymc
+  - emcee
+  - tqdm
   - openpyxl
   - ipykernel
   - pip

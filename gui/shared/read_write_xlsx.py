@@ -32,9 +32,8 @@ def read_xlsx(path):
 
 
 def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
-    bounds, initial_guess, known_params, known_params_err_std,
-    free_params_priors, best_fit, confidence_interval, std, rmse,
-    bleaching_depth=None):
+    free_params_bounds, initial_guess, known_params_distribution,
+    best_fit, confidence_interval, std, rmse, bleaching_depth=None):
     """Writes various fit details into a .xlsx file."""
 
     p = Path(path)
@@ -124,7 +123,7 @@ def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
     ws["A6"] = "fit_quality"
     ws["A6"].font = Font(bold=True)
     quality_params \
-        = ["draws", "tune", "target_accept", "n_bootstrap", "num_restarts"]
+        = ["draws", "tune", "num_restarts"]
     for i, label in enumerate(quality_params, start=1):
         ws.cell(row=7, column=i, value=label)
         val = getattr(fit_quality, label)
@@ -142,11 +141,31 @@ def write_xlsx(path, model_function, fit_quality, x_data, y_data, y_err_std,
 
     current_row = 13 + len(x_data) + 1
 
-    _write_tuple_dict("bounds", bounds, "lower", "upper")
+    # extract known parameter values and standard deviations
+    known_params = {}
+    known_params_err_std = {}
+    custom_priors = {}
+
+    for param_names, distribution in known_params_distribution.items():
+        if callable(distribution):
+            custom_priors[", ".join(param_names)] = distribution
+        else:
+            known_params[param_names[0]] = distribution[0]
+            known_params_err_std[param_names[0]] = distribution[1]
+
+    _write_tuple_dict("free_params_bounds", free_params_bounds, "lower", "upper")
     _write_float_and_array_dict("initial_guess", initial_guess)
     _write_float_and_array_dict("known_params", known_params)
     _write_float_and_array_dict("known_params_err_std", known_params_err_std)
-    _write_tuple_dict("free_params_priors", free_params_priors, "value", "std")
+
+    # write custom prior information if given
+    if custom_priors:
+        _write_title_and_header("custom_priors", custom_priors)
+        ws.cell(row=current_row, column=1, value="distribution")
+        for i in range(2, len(custom_priors) + 2):
+            ws.cell(row=current_row, column=i, value="Custom logpdf")
+        current_row += 2
+
     _write_float_and_array_dict("best_fit", best_fit, value_label="median")
     _write_tuple_dict("confidence_interval", confidence_interval, "lower",
         "upper")

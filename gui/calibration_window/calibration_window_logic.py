@@ -57,7 +57,6 @@ class CalibrationWindowLogic(QObject):
 
         # fit results
         self.initial_guess = None
-        self.free_params_priors = None
         self.fit_result = None
 
         # flag depicting whether the fit results are up to date
@@ -225,10 +224,11 @@ class CalibrationWindowLogic(QObject):
         # order is a scalar that is constant for all datapoints, t_exposure_1 
         # can differ between datapoints because multiple calibration datasets
         # can be used
-        self.known_params = {"order": self.order,
-            "t_exposure_1": self.t_exposure_combined}
-        self.known_params_err_std = {"order": self.order_std}
-        self.bounds = {
+        self.known_params_distribution = {
+            ("order",): (self.order, self.order_std),
+            ("t_exposure_1",): (self.t_exposure_combined, 0.0)
+        }
+        self.free_params_bounds = {
             "sigma_phi": self.engine.param_bounds.val.sigma_phi,
             "mu": self.engine.param_bounds.val.mu
         }
@@ -237,9 +237,8 @@ class CalibrationWindowLogic(QObject):
 
         self.fit_runner = FitRunner(self.engine, self.x_data_combined,
             self.y_data_combined, self.y_err_std_combined,
-            self.engine.models.expo, self.known_params, self.bounds,
-            self.fit_type, known_params_err_std=self.known_params_err_std,
-            fit_quality=self.fit_quality)
+            self.engine.models.expo, self.known_params_distribution,
+            self.free_params_bounds, self.fit_type, self.fit_quality)
 
         self.fit_runner.status.connect(self.ui.status_label.setText)
         self.fit_runner.finished.connect(self.on_fit_finished,
@@ -256,7 +255,6 @@ class CalibrationWindowLogic(QObject):
 
         # save calibration fit results
         self.initial_guess = self.fit_runner.initial_guess
-        self.free_params_priors = self.fit_runner.free_params_priors
         self.fit_result = self.fit_runner.fit_result
 
         # set fit completed flag
@@ -350,12 +348,13 @@ class CalibrationWindowLogic(QObject):
             path += ".xlsx"
 
         # add 1 again to order before exporting
-        export_known_params = self.known_params.copy()
-        export_known_params["order"] += 1
+        export_known_params_distribution = self.known_params_distribution.copy()
+        export_known_params_distribution[("order",)] = (self.order + 1,
+            self.order_std)
 
         write_xlsx(path, self.engine.models.expo, self.fit_quality,
             self.x_data_combined, self.y_data_combined, self.y_err_std_combined,
-            self.bounds, self.initial_guess, export_known_params,
-            self.known_params_err_std, self.free_params_priors,
+            self.free_params_bounds, self.initial_guess,
+            export_known_params_distribution,
             self.fit_result.best_fit, self.fit_result.confidence_interval,
             self.fit_result.std, self.fit_result.rmse)

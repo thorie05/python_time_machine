@@ -35,3 +35,4 @@ class FitResult:
     rmse : float | None = None
     marginal_samples: dict | None = None
     joint_samples: list | None = None
+    ess: dict | None = None

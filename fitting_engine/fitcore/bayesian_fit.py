@@ -6,7 +6,7 @@ from .fit_result import FitResult
 def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
     model_function, initial_guess, free_params_bounds,
     known_params_distribution, n_walkers=None, seed=None,
-    verbose=False):
+    verbose=False, only_positive=False):
     """
     A function that takes datapoints and a mathematical model function to
     calculate the best fit of the model through the datapoints as well as the
@@ -50,6 +50,8 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
             used.
         seed (int, optional): Optional random number generator seed.
         verbose (bool, optional): Optional flag controlling console output.
+        only_positive (bool, optional): Flag that controls if the sampled
+            parameters are allowed to be only non-negative.
 
     Returns:
         FitResult: Dataclass containing all relevant information about a fit.
@@ -83,6 +85,9 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
         return dict(zip(sampled_param_names, theta))
 
     def log_prior(theta):
+        if only_positive and np.any(theta < 0):
+            return -np.inf
+
         params = unpack_params(theta)
         lp = 0.0
 
@@ -113,14 +118,19 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
         if not np.isfinite(lp):
             return -np.inf
 
-        return lp + log_likelihood(theta)
+        ll = log_likelihood(theta)
+
+        if not np.isfinite(ll):
+            return -np.inf
+
+        return lp + ll
 
     rng = np.random.default_rng(seed)
 
     if n_walkers is None:
-        n_walkers = max(32, 2 * ndim)
+        n_walkers = max(32, 8 * ndim)
 
-    scale = 1e-4 * np.where(theta_init != 0, np.abs(theta_init), 1.0)
+    scale = 1e-2 * np.where(theta_init != 0, np.abs(theta_init), 1.0)
 
     initial_positions = np.empty((n_walkers, ndim))
 
@@ -132,7 +142,9 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
                 initial_positions[i] = position
                 break
 
-    sampler = emcee.EnsembleSampler(n_walkers, ndim, log_posterior)
+    sampler = emcee.EnsembleSampler(n_walkers, ndim, log_posterior,
+    moves=[(emcee.moves.DEMove(), 0.8),
+        (emcee.moves.DESnookerMove(), 0.2)])
 
     if seed is not None:
         sampler.random_state = np.random.RandomState(seed).get_state()
@@ -188,8 +200,13 @@ def bayesian_fit(draws, tune, x_data, y_data, y_err_std,
 
     success = bool(tau_ok and ess_ok)
 
+    # extract effective sample sizes of free parameters
+    ess_dict = {name: float(ess[sampled_param_names.index(name)])
+        for name in free_params_bounds}
+
     result = FitResult(success=success, best_fit=best_fit,
         confidence_interval=confidence_interval, std=std, rmse=rmse,
-        marginal_samples=marginal_samples, joint_samples=joint_samples)
+        marginal_samples=marginal_samples, joint_samples=joint_samples,
+        ess=ess_dict)
 
     return result

@@ -3,9 +3,7 @@ import numpy as np
 # The fitting functions (easy_fit, bootstrap_fit, bayesian_fit, full_fit) expect
 # the model functions to have x, the variable of the mathematical function, as
 # the the first argument. Other arguments are treated as parameters that can
-# either have known values are be used as fit/free parameters. All functions
-# also need to have a math argument where numpy or pymc math can be passed and
-# it has work with both math frameworks.
+# either have known values are be used as fit/free parameters.
 
 # All time variables are interpreted as consecutive timespans, not event ages.
 # For example: t_exposure_1 = 1000, t_burial_1 = 100, t_exposure_2 = 10 means:
@@ -31,7 +29,7 @@ import numpy as np
 SINGLE_ORDER_VAL = 1e-6
 
 
-def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
+def expo(x, order, sigma_phi, mu, t_exposure_1):
     """Mathematical model for a single exposure curve starting from saturation.
 
     Args:
@@ -40,9 +38,6 @@ def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
         sigma_phi (float): Sigma-Phi value, detrapping rate at the surface.
         mu (float): Mu value, light attenuation coefficient in the rock.
         t_exposure_1 (float): Exposure time of the rock surface.
-        math (module, optional): Optional variable controling the math used
-            math module, with numpy being the default value. This is convenient
-            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -51,13 +46,13 @@ def expo(x, order, sigma_phi, mu, t_exposure_1, math=np):
 
     # if order is 0 (single-order) assign the specified single-order value to
     # avoid having to use two distinct formulas
-    order = math.maximum(order, SINGLE_ORDER_VAL)
+    order = np.maximum(order, SINGLE_ORDER_VAL)
 
-    return (order * sigma_phi * t_exposure_1 * math.exp(-mu * x) + 1) \
+    return (order * sigma_phi * t_exposure_1 * np.exp(-mu * x) + 1) \
         **(-1 / order)
 
 
-def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
+def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1):
     """Mathematical model for an exposure-burial curve starting from saturation.
 
     Args:
@@ -69,9 +64,6 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
             assumend as a constant.
         t_exposure_1 (float): Exposure time of the rock surface.
         t_burial_1 (float): Burial time of the rock surface.
-        math (module, optional): Optional variable controling the math used
-            math module, with numpy being the default value. This is convenient
-            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -79,14 +71,14 @@ def expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1, math=np):
     """
 
     # get initial condition for the luminescence profile
-    l_initial_condition = expo(x, order, sigma_phi, mu, t_exposure_1, math=math)
+    l_initial_condition = expo(x, order, sigma_phi, mu, t_exposure_1)
 
     # burial works same for single and general order kinetics
-    return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_1)
+    return 1 - (1 - l_initial_condition) * np.exp(-f * t_burial_1)
 
 
 def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
-    t_exposure_2, math=np):
+    t_exposure_2):
     """Mathematical model for an exposure-burial-exposure curve starting from
         saturation.
 
@@ -100,9 +92,6 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
         t_exposure_1 (float): First exposure time of the rock surface.
         t_burial_1 (float): Burial time of the rock surface.
         t_exposure_2 (float): Second exposure time of the rock surface.
-        math (module, optional): Optional variable controling the math used
-            math module, with numpy being the default value. This is convenient
-            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -110,15 +99,15 @@ def expo_buri_expo(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
     """
 
     l_initial_condition = expo_buri(x, order, sigma_phi, mu, f, t_exposure_1,
-        t_burial_1, math=math)
+        t_burial_1)
 
-    order = math.maximum(order, SINGLE_ORDER_VAL)
+    order = np.maximum(order, SINGLE_ORDER_VAL)
 
     return l_initial_condition * (order * sigma_phi * t_exposure_2 \
-        * math.exp(-mu * x) + 1)**(-1 / order)
+        * np.exp(-mu * x) * l_initial_condition**order + 1)**(-1 / order)
 
 def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
-    t_exposure_2, t_burial_2, math=np):
+    t_exposure_2, t_burial_2):
     """Mathematical model for an exposure-burial-exposure-burial curve.
 
     Args:
@@ -132,9 +121,6 @@ def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
         t_burial_1 (float): First burial time of the rock surface.
         t_exposure_1 (float): Second exposure time of the rock surface.
         t_burial_1 (float): Second burial time of the rock surface.
-        math (module, optional): Optional variable controling the math used
-            math module, with numpy being the default value. This is convenient
-            because in bayesian_fit which uses pymc simply pymc.math is passed.
 
     Returns:
         float or numpy.ndarray: The strength of the luminescence signal at
@@ -142,6 +128,6 @@ def expo_buri_expo_buri(x, order, sigma_phi, mu, f, t_exposure_1, t_burial_1,
     """
 
     l_initial_condition = expo_buri_expo(x, order, sigma_phi, mu, f,
-        t_exposure_1, t_burial_1, t_exposure_2, math=math)
+        t_exposure_1, t_burial_1, t_exposure_2)
 
-    return 1 - (1 - l_initial_condition) * math.exp(-f * t_burial_2)
+    return 1 - (1 - l_initial_condition) * np.exp(-f * t_burial_2)

@@ -1,10 +1,8 @@
 from . import models
 from .fitcore import (
     bayesian_fit,
-    bootstrap_fit,
     easy_fit,
     fit_quality_settings,
-    full_fit,
     get_initial_guess
 )
 from .get_event_ages import get_event_ages
@@ -58,39 +56,15 @@ class FittingEngine():
         return easy_fit(x_data, y_data, model_function, known_params,
             initial_guess, y_err_std=y_err_std, only_positive=only_positive)
 
-    def bootstrap_fit(self, n, x_data, y_data, model_function,
-        known_params, initial_guess, y_err_std=None,
-        known_params_err_std=None, only_positive=False, seed=None):
-        """Wrapper method for bootstrap_fit."""
-
-        return bootstrap_fit(n, x_data, y_data, model_function, known_params,
-            initial_guess, y_err_std=y_err_std, 
-            known_params_err_std=known_params_err_std,
-            only_positive=only_positive, seed=seed)
-
-    def bayesian_fit(self, draws, tune, x_data, y_data, y_err_std, model_function,
-        known_params, free_params_priors, known_params_err_std=None,
-        only_positive=False, target_accept=0.95,
-        cores=4, seed=None):
-        """Wrapper method for bayesian_fit."""
+    def bayesian_fit(self, draws, tune, x_data, y_data, y_err_std,
+        model_function, initial_guess, free_params_bounds,
+        known_params_distribution, n_walkers=None, seed=None,
+        only_positive=False):
 
         return bayesian_fit(draws, tune, x_data, y_data, y_err_std,
-            model_function, known_params, free_params_priors,
-            known_params_err_std=known_params_err_std,
-            only_positive=only_positive, target_accept=target_accept,
-            cores=cores, seed=seed, verbose=self.verbose)
-
-    def full_fit(self, x_data, y_data, y_err_std, model_function, known_params,
-        known_params_err_std=None, free_params_priors=None, bounds=None,
-        fit_quality=fit_quality_settings.medium, only_positive=False, cores=4,
-        seed=None, status_callback=None):
-        """Wrapper method for full_fit."""
-
-        return full_fit(x_data, y_data, y_err_std, model_function, known_params,
-            known_params_err_std=known_params_err_std,
-            free_params_priors=free_params_priors, bounds=bounds,
-            fit_quality=fit_quality, only_positive=only_positive, cores=cores,
-            seed=seed, status_callback=status_callback, verbose=self.verbose)
+            model_function, initial_guess, free_params_bounds,
+            known_params_distribution, n_walkers=n_walkers, seed=seed,
+            verbose=self.verbose, only_positive=only_positive)
 
     def get_event_ages(self, param_names, posterior_samples):
         """Wrapper method for get_event_ages."""

@@ -69,8 +69,17 @@ def easy_fit(x_data, y_data, model_function, known_params, initial_guess,
 
     # apply least squares fit with custom residual function
     try:
-        result = least_squares(residuals, x0=initial_guess_array,
-            bounds=bounds, max_nfev=10_000)
+        result = least_squares(
+            residuals,
+            x0=initial_guess_array,
+            bounds=bounds,
+            max_nfev=10_000,
+            ftol=1e-12,
+            xtol=1e-12,
+            gtol=1e-12,
+            jac="3-point",
+            x_scale="jac"
+        )
 
         # compute parameter uncertainties
         res_jacobian = result.jac

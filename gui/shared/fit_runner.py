@@ -10,7 +10,8 @@ class FitRunner(QObject):
     failed = Signal(str)
 
     def __init__(self, engine, x_data, y_data, y_err_std, model_function,
-        known_params, bounds, fit_type, fit_quality, known_params_err_std=None):
+        known_params_distribution, free_params_bounds, fit_type, fit_quality,
+        initial_guess=None):
         super().__init__()
 
         self.engine = engine
@@ -20,15 +21,13 @@ class FitRunner(QObject):
         self.y_data = y_data
         self.y_err_std  = y_err_std
         self.model_function = model_function
-        self.known_params = known_params
-        self.bounds  = bounds
+        self.known_params_distribution = known_params_distribution
+        self.free_params_bounds = free_params_bounds
         self.fit_type = fit_type
-        self.known_params_err_std = known_params_err_std
         self.fit_quality = fit_quality
 
         # fit results
-        self.initial_guess = None
-        self.free_params_priors = None
+        self.initial_guess = initial_guess
         self.fit_result = None
 
         # set up threads
@@ -50,33 +49,57 @@ class FitRunner(QObject):
     @Slot()
     def doWork(self):
         try:
-            if self.fit_type == "mcmc":
-                # run full fit
-                self.initial_guess, self.free_params_priors, self.fit_result \
-                    = self.engine.full_fit(self.x_data, self.y_data,
-                    self.y_err_std, self.model_function, self.known_params,
-                    known_params_err_std=self.known_params_err_std,
-                    bounds=self.bounds, fit_quality=self.fit_quality, cores=1,
-                    only_positive=True, status_callback=self.status.emit)
-            else:
-                # get initial guess
-                self.status.emit("Finding initial guess...")
+            # extract known parameter values
+            known_params = {}
 
-                self.initial_guess = self.engine.get_initial_guess(self.x_data,
-                    self.y_data, self.model_function, self.known_params,
-                    bounds=self.bounds, y_err_std=self.y_err_std,
-                    only_positive=True,
-                    num_restarts=self.fit_quality.num_restarts)
+            for param_names, distribution in \
+                self.known_params_distribution.items():
+                if callable(distribution):
+                    for name in param_names:
+                        known_params[name] = self.initial_guess[name]
+                else:
+                    known_params[param_names[0]] = distribution[0]
+
+            # get initial guess
+            self.status.emit("Finding initial guess...")
+
+            initial_guess = self.engine.get_initial_guess(self.x_data,
+                self.y_data, self.model_function, known_params,
+                bounds=self.free_params_bounds, y_err_std=self.y_err_std,
+                only_positive=True,
+                num_restarts=self.fit_quality.num_restarts)
+
+            if self.fit_type == "mcmc":
+                # add uncertain known parameters to initial guess
+                for param_names, distribution in \
+                    self.known_params_distribution.items():
+                    if callable(distribution):
+                        for name in param_names:
+                            initial_guess[name] = self.initial_guess[name]
+                    elif distribution[1] != 0:
+                        initial_guess[param_names[0]] = distribution[0]
+
+                self.initial_guess = initial_guess
+
+                # run bayesian fit
+                self.status.emit("Running Bayesian MCMC fit...")
+                self.fit_result = self.engine.bayesian_fit(
+                    self.fit_quality.draws, self.fit_quality.tune,
+                    self.x_data, self.y_data, self.y_err_std,
+                    self.model_function, self.initial_guess,
+                    self.free_params_bounds, self.known_params_distribution,
+                    only_positive=True)
+            else:
+                self.initial_guess = initial_guess
 
                 # run least squares
                 self.status.emit("Running least-squares fit...")
                 self.fit_result = self.engine.easy_fit(self.x_data, self.y_data,
-                    self.model_function, self.known_params, self.initial_guess,
-                    y_err_std=self.y_err_std)
+                    self.model_function, known_params, self.initial_guess,
+                    y_err_std=self.y_err_std, only_positive=True)
 
             self.finished.emit()
 
         except Exception:
             tb = traceback.format_exc()
             self.failed.emit(tb)
-
